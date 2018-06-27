@@ -1,0 +1,6 @@
+[package]
+name = "ecmascript"
+version = "0.1.0"
+authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
+
+[dependencies]
