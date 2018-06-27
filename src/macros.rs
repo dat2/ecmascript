@@ -11,6 +11,19 @@ macro_rules! build_ast {
     ([$($many:tt)+]) => {
         build_ast!($($many)+)
     };
+    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar-literals
+    (regex_lit /{$pattern:expr}/{$flags:expr}) => {
+        RegexLiteral {
+            pattern: $pattern,
+            flags: $flags,
+        }
+    };
+    (regex_lit /{$pattern:expr}/) => {
+        RegexLiteral {
+            pattern: $pattern,
+            flags: String::new(),
+        }
+    };
     // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
     (this) => {
         Expression::This

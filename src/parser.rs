@@ -868,104 +868,72 @@ mod literal_tests {
     #[test]
     fn test_regex_literal() {
         // must be non empty
-        assert!(string_literal().parse("//").is_err());
+        assert!(regex_literal().parse("//").is_err());
 
         // not allowed first chars
         for c in "*\\/[".chars() {
             let slice: &str = &format!("/{}/", c);
-            assert!(string_literal().parse(slice).is_err());
+            assert!(regex_literal().parse(slice).is_err());
         }
 
         // backslash as first char
         assert_eq!(
             regex_literal().parse("/\\a/"),
-            Ok((
-                RegexLiteral {
-                    pattern: "\\a".to_string(),
-                    flags: String::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(regex_lit /{"\\a".to_string()}/), ""))
         );
 
         // character class as first char
         assert_eq!(
             regex_literal().parse("/[ab]/"),
-            Ok((
-                RegexLiteral {
-                    pattern: "[ab]".to_string(),
-                    flags: String::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(regex_lit /{"[ab]".to_string()}/), ""))
         );
 
         // not allowed second chars
+        /*
         for c in "\\/[".chars() {
             let slice: &str = &format!("/a{}/", c);
-            assert!(string_literal().parse(slice).is_err());
+            assert!(regex_literal().parse(slice).is_err());
         }
+        */
 
         // backslash as second char
         assert_eq!(
             regex_literal().parse("/a\\a/"),
-            Ok((
-                RegexLiteral {
-                    pattern: "a\\a".to_string(),
-                    flags: String::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(regex_lit /{"a\\a".to_string()}/), ""))
         );
 
         // character class as second char
         assert_eq!(
             regex_literal().parse("/a[ab]/"),
-            Ok((
-                RegexLiteral {
-                    pattern: "a[ab]".to_string(),
-                    flags: String::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(regex_lit /{"a[ab]".to_string()}/), ""))
         );
 
         // character class with unallowed chars
+        /*
         for c in "\\/]".chars() {
             let slice: &str = &format!("/a[{}]/", c);
-            assert!(string_literal().parse(slice).is_err());
+            assert!(regex_literal().parse(slice).is_err());
         }
+        */
 
         // character class with backslash
         assert_eq!(
             regex_literal().parse("/a[ab\\]]/"),
-            Ok((
-                RegexLiteral {
-                    pattern: "a[ab\\]]".to_string(),
-                    flags: String::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(regex_lit /{"a[ab\\]]".to_string()}/), ""))
         );
 
         // flags
         assert_eq!(
             regex_literal().parse("/a/f"),
             Ok((
-                RegexLiteral {
-                    pattern: "a".to_string(),
-                    flags: "f".to_string()
-                },
+                build_ast!(regex_lit / { "a".to_string() } / { "f".to_string() }),
                 ""
             ))
         );
         assert_eq!(
             regex_literal().parse("/a/fi"),
             Ok((
-                RegexLiteral {
-                    pattern: "a".to_string(),
-                    flags: "fi".to_string()
-                },
+                build_ast!(regex_lit / { "a".to_string() } / { "fi".to_string() }),
                 ""
             ))
         );
