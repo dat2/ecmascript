@@ -1314,53 +1314,19 @@ mod expression_test {
     fn test_array_literal() {
         assert_eq!(
             primary_expression().parse("[]"),
-            Ok((
-                Expression::ArrayLiteral {
-                    elements: Vec::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(array []), ""))
         );
         assert_eq!(
             primary_expression().parse("[,,,,]"),
-            Ok((
-                Expression::ArrayLiteral {
-                    elements: Vec::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(array []), ""))
         );
         assert_eq!(
             primary_expression().parse("[,,,,yield,,yield,,,]"),
-            Ok((
-                Expression::ArrayLiteral {
-                    elements: vec![
-                        Expression::Yield {
-                            argument: None,
-                            delegate: false,
-                        },
-                        Expression::Yield {
-                            argument: None,
-                            delegate: false,
-                        },
-                    ],
-                },
-                ""
-            ))
+            Ok((build_ast!(array [ [yield], [yield] ]), ""))
         );
         assert_eq!(
             primary_expression().parse("[,,,...yield,,,]"),
-            Ok((
-                Expression::ArrayLiteral {
-                    elements: vec![Expression::Spread {
-                        expression: Box::new(Expression::Yield {
-                            argument: None,
-                            delegate: false,
-                        }),
-                    }],
-                },
-                ""
-            ))
+            Ok((build_ast!(array [ [...[yield]] ]), ""))
         );
     }
 
@@ -1368,23 +1334,11 @@ mod expression_test {
     fn test_jsx() {
         assert_eq!(
             primary_expression().parse("<div/>"),
-            Ok((
-                Expression::JsxElement {
-                    name: "div".to_string(),
-                    attributes: Vec::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(<div />), ""))
         );
         assert_eq!(
             primary_expression().parse("<div>\n\n</div>"),
-            Ok((
-                Expression::JsxElement {
-                    name: "div".to_string(),
-                    attributes: Vec::new()
-                },
-                ""
-            ))
+            Ok((build_ast!(<div />), ""))
         );
         assert!(primary_expression().parse("<div>\n\n</v>").is_err());
     }

@@ -11,7 +11,15 @@ macro_rules! build_ast {
     ([$($many:tt)+]) => {
         build_ast!($($many)+)
     };
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar-literals
+    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
+    (this) => {
+        Expression::This
+    };
+    (id $id:expr) => {
+        Expression::IdReference {
+            id: $id
+        }
+    };
     (null) => {
         Expression::Literal {
             literal: ExpressionLiteral::NullLiteral(NullLiteral)
@@ -37,29 +45,9 @@ macro_rules! build_ast {
             literal: ExpressionLiteral::StringLiteral($lit)
         }
     };
-
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
-    (this) => {
-        Expression::This
-    };
-    (id $id:expr) => {
-        Expression::IdReference {
-            id: $id
-        }
-    };
-    (call [$($id:tt)+] [$($args:tt)+]) => {
-        Expression::Call {
-            callee: Box::new(build_ast!($($id)+)),
-            arguments: vec![$(build_ast!($args)),+]
-        }
-    };
-    (function [$($params:tt),+] {$body:expr}) => {
-        Expression::Function {
-            id: None,
-            params: vec![$(build_ast!($params)),+],
-            body: $body,
-            generator: false,
-            async: false
+    (array [$($elements:tt),*]) => {
+        Expression::ArrayLiteral {
+            elements: vec![$(build_ast!($elements)),*]
         }
     };
     (obj [$($properties:tt),+]) => {
@@ -74,7 +62,41 @@ macro_rules! build_ast {
             kind: PropertyKind::Init,
         }
     };
-    /*
+    (function [$($params:tt),+] {$body:expr}) => {
+        Expression::Function {
+            id: None,
+            params: vec![$(build_ast!($params)),+],
+            body: $body,
+            generator: false,
+            async: false
+        }
+    };
+    (...[$($expression:tt)+]) => {
+        Expression::Spread {
+            expression: Box::new(build_ast!($($expression)+))
+        }
+    };
+    // whole bunch of other stuff between
+    (call [$($id:tt)+] [$($args:tt)+]) => {
+        Expression::Call {
+            callee: Box::new(build_ast!($($id)+)),
+            arguments: vec![$(build_ast!($args)),+]
+        }
+    };
+    (yield) => {
+        Expression::Yield {
+            argument: None,
+            delegate: false,
+        }
+    };
+    // JSX
+    (<$id:ident />) => {
+        Expression::JsxElement {
+            name: stringify!($id).to_string(),
+            attributes: Vec::new()
+        }
+    };
+        /*
     (var) => {
         VariableDeclarationKind::Var
     };
