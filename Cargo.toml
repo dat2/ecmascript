@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
 
 [dependencies]
+combine = "3.3.2"
+failure = "0.1.1"
+lazy_static = "1.0.1"
+unicode-xid = "0.1.0"
