@@ -33,12 +33,12 @@ use std::fs::File;
 use std::io::prelude::*;
 
 fn main() -> std::io::Result<()> {
-	// read foo.js
+    // read foo.js
     let mut file = File::open("foo.js")?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
-	// parse it
+    // parse it
     let ast = ecmascript::parse(&contents).unwrap();
     let minifed = ecmascript::minify(&ast);
     println!("{}", minified);
