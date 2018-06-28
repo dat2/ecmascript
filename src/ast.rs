@@ -119,7 +119,7 @@ pub enum Expression {
         rhs: Box<Expression>,
     },
     ArrowFunction {
-        body: Box<Vec<Statement>>,
+        body: Vec<Statement>,
         expression: bool,
         async: bool, // async () =>
     },

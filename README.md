@@ -1,16 +1,76 @@
 # ecmascript ![Travis](https://img.shields.io/travis/dat2/ecmascript.svg) ![Codecov](https://img.shields.io/codecov/c/github/dat2/ecmascript.svg)
 
-This is a rust crate to help you with ECMAScript 2017 v8.0.
+This is a rust crate to help you with ECMAScript 2017 v8.0. It provides a
+parser and an AST (abstract syntax tree) implementation. We also provide
+some macros to construct the AST so you can do interesting things like
+optimization!
 
-## TO DO
+# Usage
 
-* [ ] Finish the parser
-* [ ] JSX language extension (see: https://facebook.github.io/jsx/)
-* [ ] pretty printer (with minification options)
-* [ ] AST re-write rules (g. ES2017 -> ES2016 -> ES2015)
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+ecmascript = "0.1"
+```
+
+Then put this in your crate root:
+
+```rust
+extern crate ecmascript;
+```
+
+# About
+
+`ecmascript` is used to parse a JavaScript module, and perform some operations
+on it. For example, concatenating modules together, uglifying the variable names,
+pretty printing uglified code, etc.
+
+# Features
+
+* _ECMAScript 2017 v8.0 support_
+  * We are actively developing this library to be up to date!
+* _JSX Extended Support_
+  * JSX is meant to be an additive extension to the language
+* _AST Pretty Printer_
+  * This supports minification options, such as 0 whitespace
+* _AST rewrite rules_
+  * Eg. Constant folding, translating to older versions of the language, etc.
+
+# Example
+
+# Testing
+
+To test everything, just run this command:
+
+```
+cargo test
+```
+
+Or to run a single test,
+
+```
+cargo test --test <test_name>
+```
+
+# Linting
+
+To lint your code, use [clippy](https://github.com/rust-lang-nursery/rust-clippy). Its as easy as
+running once you have it installed!
+
+```
+cargo clippy
+```
+
+# Documentation
+TODO
+
+# TO DO
+
+* [ ] Parser Integration Testing
+  * eg. reading files, asserting that the parse is succesful
 * [ ] Re-write the grammar from the spec into a readable document
 * [ ] Build macros to help match AST / build AST trees
-* [ ] Source Maps
 
 # References
 
@@ -18,4 +78,4 @@ This is a rust crate to help you with ECMAScript 2017 v8.0.
 
 # License
 
-MIT.
+MIT © Nick Dujay
