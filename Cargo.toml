@@ -1,6 +1,6 @@
 [package]
 name = "ecmascript"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
 description = "A rust implementation of an ECMAScript parser"
 documentation = "https://docs.rs/ecmascript"
