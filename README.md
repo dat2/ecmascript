@@ -1,4 +1,4 @@
-# ecmascript ![Travis](https://img.shields.io/travis/dat2/ecmascript.svg) ![Codecov](https://img.shields.io/codecov/c/github/dat2/ecmascript.svg)
+# ecmascript [![Build Status](https://travis-ci.org/dat2/ecmascript.svg?branch=master)](https://travis-ci.org/dat2/ecmascript) [![codecov](https://codecov.io/gh/dat2/ecmascript/branch/master/graph/badge.svg)](https://codecov.io/gh/dat2/ecmascript)
 
 This is a rust crate to help you with ECMAScript 2017 v8.0. It provides a
 parser and an AST (abstract syntax tree) implementation. We also provide

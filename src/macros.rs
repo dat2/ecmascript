@@ -5,10 +5,15 @@
 ///
 /// # Example
 /// ```
+/// # #[macro_use] extern crate ecmascript;
+/// # use ecmascript::ast::*;
 /// let my_wrapper_func = build_ast! {
-///   function [id "my_wrapper".to_string()] ( ) {
-///     var [id "foo".to_string()] = [obj []];
-///   }
+///   [array [
+///       [true],
+///       [false],
+///       [null],
+///       [...[array [ [num 1f64] ]]]
+///    ]]
 /// };
 /// ```
 ///
@@ -17,9 +22,7 @@
 /// - we use {} to accept a rust expression
 /// eg: `call [id "my_func".to_string()] [ [id "a".to_string()] [true] [null] ]`
 /// recursively expands to
-/// ```
-/// build_ast!(call build_ast!(...) [ build_ast!(...), build_ast!(...), build_ast!(...) ])
-/// ```
+/// `build_ast!(call build_ast!(...) [ build_ast!(...), build_ast!(...), build_ast!(...) ])`
 
 #[macro_export]
 macro_rules! build_ast {
