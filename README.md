@@ -39,9 +39,9 @@ fn main() -> std::io::Result<()> {
     file.read_to_string(&mut contents)?;
 
 	// parse it
-	let ast = ecmascript::parse(&contents).unwrap();
-	let minifed = ecmascript::minify(&ast);
-	println!("{}", minified);
+    let ast = ecmascript::parse(&contents).unwrap();
+    let minifed = ecmascript::minify(&ast);
+    println!("{}", minified);
 }
 ```
 
