@@ -1,15 +1,25 @@
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-identifier-names
-pub type Id = String;
-
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar-literals
-pub type StringLiteral = String;
-
-pub type BooleanLiteral = bool;
-
+/// NullLiteral is the syntax element for `null`.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-null-literals)
 #[derive(Debug, Clone, PartialEq)]
 pub struct NullLiteral;
 
+/// BooleanLiteral is the syntax element for `true` and `false`.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-boolean-literals)
+pub type BooleanLiteral = bool;
+
 pub type NumberLiteral = f64;
+
+/// StringLiteral is a syntax element with quotes (single or double).
+/// eg. `var foo = 'my string literal';`
+/// `'my string literal'` is the literal.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-string-literals)
+pub type StringLiteral = String;
+
+/// Id is an identifier in the ecmascript language
+/// eg. `var foo = {};`
+/// `foo` is the identifier.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-identifier-names).
+pub type Id = String;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegexLiteral {

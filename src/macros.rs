@@ -1,11 +1,26 @@
-// some conventions:
-// [] means recursively call the build_ast macro again
-// {} means take a rust expression
-// when we need to recursively call the macro for like a call expr,
-// we do this: [ [arg1] [arg2] [arg3] ]
+#![deny(missing_docs)]
+/// This macro makes constructing complicated syntax trees very easy.
+/// This can be useful for re-writing parts of the AST, or deriving a
+/// a syntax tree from other trees (eg. concatenating syntax trees).
+///
+/// # Example
+/// ```
+/// let my_wrapper_func = build_ast! {
+///   function [id "my_wrapper".to_string()] ( ) {
+///     var [id "foo".to_string()] = [obj []];
+///   }
+/// };
+/// ```
+///
+/// # Conventions
+/// - we use [] to represent recursive calls to the macro
+/// - we use {} to accept a rust expression
+/// eg: `call [id "my_func".to_string()] [ [id "a".to_string()] [true] [null] ]`
+/// recursively expands to
+/// ```
+/// build_ast!(call build_ast!(...) [ build_ast!(...), build_ast!(...), build_ast!(...) ])
+/// ```
 
-// two macros that get exported:
-// build_ast and match_ast
 #[macro_export]
 macro_rules! build_ast {
     ([$($many:tt)+]) => {
