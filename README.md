@@ -1,4 +1,4 @@
-# ecmascript
+# ecmascript ![Travis](https://img.shields.io/travis/dat2/ecmascript.svg)
 
 This is a rust crate to help you with ECMAScript 2017 v8.0.
 
