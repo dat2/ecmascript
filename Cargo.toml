@@ -2,6 +2,25 @@
 name = "ecmascript"
 version = "0.1.0"
 authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
+description = "A rust implementation of an ECMAScript parser"
+documentation = "https://docs.rs/ecmascript"
+homepage = "https://github.com/dat2/ecmascript"
+repository = "https://github.com/dat2/ecmascript"
+readme = "README.md"
+keywords = ["ecmascript", "javascript", "parser"]
+categories = [
+    "parser-implementations",
+    "parsing"
+]
+license = "MIT"
+
+[badges]
+travis-ci = { repository = "dat2/ecmascript", branch = "master" }
+codecov = { repository = "dat2/ecmascript", branch = "master", service = "github" }
+maintenance = { status = "actively-developed" }
+
+[lib]
+name = "ecmascript"
 
 [dependencies]
 combine = "3.3.2"
