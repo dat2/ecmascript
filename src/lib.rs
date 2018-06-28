@@ -10,3 +10,7 @@ pub mod ast;
 pub mod parser;
 
 pub use parser::parse;
+
+pub fn minify(_program: &ast::Program) -> String {
+    String::new()
+}

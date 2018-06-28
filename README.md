@@ -20,6 +20,35 @@ Then put this in your crate root:
 extern crate ecmascript;
 ```
 
+# Example
+
+This example reads a file, parses it, and then prints out a minified version.
+
+The file reading is taken from the [`std::fs::File` docs](https://doc.rust-lang.org/std/fs/struct.File.html)
+
+```rust
+extern crate ecmascript;
+
+use std::fs::File;
+use std::io::prelude::*;
+
+fn main() -> std::io::Result<()> {
+	// read foo.js
+    let mut file = File::open("foo.js")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+	// parse it
+	let ast = ecmascript::parse(&contents).unwrap();
+	let minifed = ecmascript::minify(&ast);
+	println!("{}", minified);
+}
+```
+
+# API Reference
+
+Docs are hosted on [docs.rs](https://docs.rs/ecmascript/).
+
 # About
 
 `ecmascript` is used to parse a JavaScript module, and perform some operations
@@ -36,8 +65,6 @@ pretty printing uglified code, etc.
   * This supports minification options, such as 0 whitespace
 * _AST rewrite rules_
   * Eg. Constant folding, translating to older versions of the language, etc.
-
-# Example
 
 # Testing
 
@@ -61,9 +88,6 @@ running once you have it installed!
 ```
 cargo clippy
 ```
-
-# Documentation
-TODO
 
 # TO DO
 
