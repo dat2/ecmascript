@@ -203,19 +203,30 @@ pub enum UpdateOperator {
     Decrement,
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-unary-operators
+/// These operators take 1 operand, and are a prefix of the operand.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-unary-operators)
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
-    // -
+    /// Reverse the sign on the operand. This will do type coercion first.
+    /// eg. (-1)
     Minus,
-    // +
+    /// Make the operand a positive number. This will do type coercion first.
+    /// eg (+(-1) is 1)
     Plus,
-    // !
+    /// Logically reverse the operand. This will do type coercion first.
+    /// eg. (!true is false)
     Not,
-    // ~
+    /// Logcally reverse all the bits on the operand. This will do type coercion first.
+    /// eg (~9 is -10) (the sign bit is also reversed)
     BitwiseNot,
+    /// Check the internal type of the operand, and return a string that represents the type.
+    /// eg (typeof {}) is 'object'
     Typeof,
+    /// This operator will evaluate the operand, and then return undefined itself.
+    /// This can be used for invoke a function epxression immediately for example.
     Void,
+    /// This operator will remove a property from an object. It will return true when
+    /// the property was successfully deleted, and false when it wasnt.
     Delete,
 }
 
