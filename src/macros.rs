@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 /// This macro makes constructing complicated syntax trees very easy.
 /// This can be useful for re-writing parts of the AST, or deriving a
 /// a syntax tree from other trees (eg. concatenating syntax trees).
@@ -19,10 +18,13 @@
 ///
 /// # Conventions
 /// - we use [] to represent recursive calls to the macro
-/// - we use {} to accept a rust expression
-/// eg: `call [id "my_func".to_string()] [ [id "a".to_string()] [true] [null] ]`
+///
+/// eg:
+/// `call [id "my_func".to_string()] [ [id "a".to_string()] [true] [null] ]`
 /// recursively expands to
 /// `build_ast!(call build_ast!(...) [ build_ast!(...), build_ast!(...), build_ast!(...) ])`
+///
+/// - we use {} to accept a rust expression
 
 #[macro_export]
 macro_rules! build_ast {

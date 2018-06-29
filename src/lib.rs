@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # ecmascript
 //! `ecmascript` is a crate that helps you parse the ECMAScript 2017 v8.0 language.
 //! It also provides some useful macros to help you construct the AST
@@ -15,7 +16,3 @@ pub mod ast;
 pub mod parser;
 
 pub use parser::parse;
-
-pub fn minify(_program: &ast::Program) -> String {
-    String::new()
-}

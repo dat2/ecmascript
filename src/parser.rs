@@ -1,3 +1,8 @@
+//! This module contains a main entry point, that takes a str slice and returns you
+//! a constructed Abstract Syntax Tree. The AST types are documented in the ast module.
+//!
+//! This parser uses the error type from failure to make error interop easier for users.
+
 use ast::*;
 use combine::error::ParseError;
 use combine::parser::char::{char, crlf, digit, hex_digit, newline, spaces, string};
@@ -1304,6 +1309,8 @@ where
     })
 }
 
+/// The main entry point to the parser. This function will return a fully constructed
+/// AST or an error message describing why it couldn't parse the input string.
 pub fn parse(source: &str) -> Result<Program, Error> {
     let stream = State::new(source);
     let (ast, _) = program()

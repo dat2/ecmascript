@@ -40,8 +40,7 @@ fn main() -> std::io::Result<()> {
 
     // parse it
     let ast = ecmascript::parse(&contents).unwrap();
-    let minifed = ecmascript::minify(&ast);
-    println!("{}", minified);
+    println!("{:?}", ast);
 }
 ```
 
