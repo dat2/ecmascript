@@ -42,6 +42,15 @@ macro_rules! build_ast {
             flags: String::new(),
         }
     };
+    (templ_el {$cooked:expr}) => {
+        build_ast!(templ_el {$cooked} {$cooked})
+    };
+    (templ_el {$cooked:expr} {$raw:expr}) => {
+        TemplateElement {
+            cooked: $cooked,
+            raw: $raw,
+        }
+    };
     // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
     (this) => {
         Expression::This

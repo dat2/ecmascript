@@ -15,9 +15,10 @@ use unicode_xid::UnicodeXID;
 
 // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-white-space
 #[allow(dead_code)]
-fn whitespace<I>() -> impl Parser<Input = I, Output = ()>
+/// This parser will consume all following whitespace tokens, including line terminators.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-white-space)
+fn ws<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -25,9 +26,10 @@ where
     spaces().map(|_| ())
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-line-terminators
-// <LF> | <CR> | <LS> | <PS> | <CRLF>
 #[allow(dead_code)]
+/// This parser will consume a single line terminator sequence token. This parser is only needed for the
+/// line_comment parser as it will consume up to a single line terminator token.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-line-terminators)
 fn line_terminator<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
@@ -52,6 +54,8 @@ where
 }
 
 #[allow(dead_code)]
+/// This parses a multiline comment, starting with /* and ending with */.
+/// It will consume the input and return ().
 fn block_comment<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
@@ -61,6 +65,7 @@ where
 }
 
 #[allow(dead_code)]
+/// This parses
 fn line_comment<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
@@ -79,7 +84,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    whitespace().or(comment())
+    ws().or(comment())
 }
 
 // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-names-and-keywords
@@ -945,61 +950,31 @@ mod literal_tests {
         // empty
         assert_eq!(
             template().parse("``"),
-            Ok((
-                TemplateElement {
-                    cooked: "".to_string(),
-                    raw: "".to_string(),
-                },
-                ""
-            ))
+            Ok((build_ast!(templ_el {String::new()}), ""))
         );
 
         // no_substitution_template
         assert_eq!(
             template().parse("`asd`"),
-            Ok((
-                TemplateElement {
-                    cooked: "asd".to_string(),
-                    raw: "asd".to_string(),
-                },
-                ""
-            ))
+            Ok((build_ast!(templ_el {"asd".to_string()}), ""))
         );
 
         // template_head
         assert_eq!(
             template().parse("`asd ${eval}`"),
-            Ok((
-                TemplateElement {
-                    cooked: "asd ".to_string(),
-                    raw: "asd ".to_string()
-                },
-                "eval}`"
-            ))
+            Ok((build_ast!(templ_el {"asd ".to_string()}), "eval}`"))
         );
 
         // template_middle
         assert_eq!(
             template_substition_tail().parse("} asd ${eval}`"),
-            Ok((
-                TemplateElement {
-                    cooked: " asd ".to_string(),
-                    raw: " asd ".to_string()
-                },
-                "eval}`"
-            ))
+            Ok((build_ast!(templ_el {" asd ".to_string()}), "eval}`"))
         );
 
         // template_tail
         assert_eq!(
             template_substition_tail().parse("} asd"),
-            Ok((
-                TemplateElement {
-                    cooked: " asd".to_string(),
-                    raw: " asd".to_string()
-                },
-                ""
-            ))
+            Ok((build_ast!(templ_el {" asd".to_string()}), ""))
         );
 
         // $
