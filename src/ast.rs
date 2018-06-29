@@ -222,14 +222,14 @@ pub enum UnaryOperator {
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
 /// sake.
 ///
-/// [Multiplicative Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-multiplicative-operators)
-/// [Additive Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-additive-operators)
-/// [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-bitwise-shift-operators)
-/// [Relational Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-relational-operators)
-/// [Equality Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-equality-operators)
-/// [Bitwise Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-bitwise-operators)
-/// [Logical Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-logical-operators)
-/// [Exponentiation Operator](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-exp-operator)
+/// - [Multiplicative Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-multiplicative-operators)
+/// - [Additive Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-additive-operators)
+/// - [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-bitwise-shift-operators)
+/// - [Relational Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-relational-operators)
+/// - [Equality Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-equality-operators)
+/// - [Bitwise Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-bitwise-operators)
+/// - [Logical Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-logical-operators)
+/// - [Exponentiation Operator](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-exp-operator)
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     /// The double equal operator that does type coercion. (a == b)
@@ -290,60 +290,98 @@ pub enum BinaryOperator {
     Exponentiation,
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-assignment-operators
+/// Assignment operators are ones that signify a chnage to the left hand side of the expression.
+///
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-assignment-operators)
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentOperator {
-    // =
+    /// The basic assignment statement. This changes the left hand side to become a
+    /// copy of the right hand side. (eg. a = 1)
     Eq,
-    // +=
+    /// This is shorthand for `lhs = lhs + rhs`. (eg a += 5).
     PlusEq,
-    // -=
+    /// This is shorthand for `lhs = lhs - rhs`. (eg a -= 5).
     MinusEq,
-    // *=
+    /// This is shorthand for `lhs = lhs * rhs`. (eg a *= 5).
     MultiplyEq,
-    // /=
+    /// This is shorthand for `lhs = lhs / rhs`. (eg a /= 5).
     DivideEq,
-    // %=
+    /// This is shorthand for `lhs = lhs % rhs`. (eg a %= 5).
+    /// This is useful when the remainder of a division is more important than the division
+    /// itself.
     ModEq,
-    // <<=
+    /// This is shorthand for `lhs = lhs << rhs`. (eg a <<= 5).
+    /// This is useful when you want to shift all the bits of a variable
+    /// without storing a copy of the variable.
     ShlEq,
-    // >>=
+    /// This is shorthand for `lhs = lhs >> rhs`. (eg a >>= 5).
+    /// This is useful when you want to shift all the bits of a variable
+    /// without storing a copy of the variable.
     ShrEq,
-    // >>>=
+    /// This is shorthand for `lhs = lhs >>> rhs`. (eg a >>>= 5).
+    /// The difference is that this will not preserve the minus sign of a number, like
+    /// the >>= operation would.
     UnsignedShrEq,
-    // |=
+    /// This is shorthand for `lhs = lhs | rhs`. (eg a |= 5).
     BitwiseOrEq,
-    // ^=
+    /// This is shorthand for `lhs = lhs ^ rhs`. (eg a ^= 5).
     BitwiseXorEq,
-    // &=
+    /// This is shorthand for `lhs = lhs & rhs`. (eg a &= 5).
     BitwiseAndEq,
 }
 
-// https://facebook.github.io/jsx/
+/// A JSX attribute is either a simple `key={value}` attribute, or a
+/// spread of an object containing multiple attributes.
+///
+/// [Reference](https://facebook.github.io/jsx/)
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsxAttribute {
+    /// Spread an objects key value pairs into the JSX object as well.
     JsxSpreadAttribute {
+        /// The expression could be typed more strictly into an ID Reference or an inline
+        /// object, but for the sake of simplicity we reference the larger enum.
         expression: Expression,
     },
+    /// A single `key={value}` pair. The value is optional, and if missing it means
+    /// the existence of the key is more important than the value of the key.
     JsxAttribute {
+        /// The key of the attribute.
         name: String,
+        /// The optional value. If it is None, then it means the value is a boolean true.
+        /// The absence of a key can mean false.
         value: Option<Expression>,
     },
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-statements-and-declarations
+/// A statement is either a declaration (var, const, let, function, export) or an
+/// instruction to the interpreter to evaluate an expression.
+/// For the sake of simplicity, declarations will get merged into this struct as well.
+///
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-statements-and-declarations)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {}
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-scripts-and-modules
+/// This is the main entry point to the syntax tree. A program is a list of statements,
+/// and statements include declarations.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
+    /// This represents how the source is parsed. A module is parsed in strict mode, which
+    /// disallows things in the parser level earlier on.
     pub source_type: SourceType,
+    /// The list of statements or declarations made by the source text.
     pub body: Vec<Statement>,
 }
 
+/// This enum represents whether or not the source code contains an ECMAScript module.
+/// An ECMAScript module can have import and export declarations in it, and has some
+/// other subtle behaviour differences.
+///
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-scripts-and-modules)
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceType {
+    /// The source text has no import or export declarations.
     Script,
+    /// The source text has import or export declarations, and can be executed
+    /// differently than a regular script.
     Module,
 }
