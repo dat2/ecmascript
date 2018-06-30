@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, skip_until};
+use combine::parser::repeat::{count, many, many1, sep_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::State;
 use combine::{eof, Parser, Stream};
@@ -1030,6 +1030,7 @@ where
         try(identifier_reference()),
         try(literal()),
         try(array_literal()),
+        try(object_literal()),
         jsx_element(),
     ))
 }
@@ -1059,11 +1060,11 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice((
-        try(null_literal()).map(|n| Expression::Literal(ExpressionLiteral::NullLiteral(n))),
-        try(boolean_literal()).map(|n| Expression::Literal(ExpressionLiteral::BooleanLiteral(n))),
-        try(numeric_literal()).map(|n| Expression::Literal(ExpressionLiteral::NumberLiteral(n))),
-        try(string_literal()).map(|n| Expression::Literal(ExpressionLiteral::StringLiteral(n))),
-    ))
+        try(null_literal()).map(ExpressionLiteral::NullLiteral),
+        try(boolean_literal()).map(ExpressionLiteral::BooleanLiteral),
+        try(numeric_literal()).map(ExpressionLiteral::NumberLiteral),
+        try(string_literal()).map(ExpressionLiteral::StringLiteral),
+    )).map(Expression::Literal)
 }
 
 #[allow(dead_code)]
@@ -1095,6 +1096,36 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     many(choice((try(assignment_expression()), spread_element())).skip(elision()))
+}
+
+#[allow(dead_code)]
+fn object_literal<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        token('{').skip(skip_tokens()),
+        token('}').skip(skip_tokens()),
+        sep_by(
+            property().skip(skip_tokens()),
+            token(',').skip(skip_tokens()),
+        ).skip(optional(token(',')))
+            .skip(skip_tokens()),
+    ).map(Expression::ObjectLiteral)
+}
+
+#[allow(dead_code)]
+fn property<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    identifier_reference().map(|id| Property {
+        key: id.clone(),
+        value: id,
+        kind: PropertyKind::Init,
+    })
 }
 
 #[allow(dead_code)]
@@ -1249,6 +1280,23 @@ mod expression_test {
         assert_eq!(
             primary_expression().parse("[,,,...yield,,,]"),
             Ok((build_ast!(array [ [...[yield]] ]), ""))
+        );
+    }
+
+    #[test]
+    fn test_object_literal() {
+        assert_eq!(
+            primary_expression().parse("{}"),
+            Ok((build_ast!(object []), ""))
+        );
+        assert_eq!(
+            primary_expression().parse("{ id }"),
+            Ok((
+                build_ast!(object [
+                    [[id "id".to_string()]: [id "id".to_string()]]
+                ]),
+                ""
+            ))
         );
     }
 

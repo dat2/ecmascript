@@ -78,8 +78,8 @@ macro_rules! build_ast {
     (array [$($elements:tt),*]) => {
         Expression::ArrayLiteral(vec![$(build_ast!($elements)),*])
     };
-    (obj [$($properties:tt),+]) => {
-        Expression::ObjectLiteral(vec![$(build_ast!($params)),+])
+    (object [$($properties:tt),*]) => {
+        Expression::ObjectLiteral(vec![$(build_ast!($properties)),*])
     };
     ([$($key:tt)+]: [$($value:tt)+]) => {
         Property {
