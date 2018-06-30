@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, sep_by, skip_until};
+use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::State;
 use combine::{eof, Parser, Stream};
@@ -1107,11 +1107,10 @@ where
     between(
         token('{').skip(skip_tokens()),
         token('}').skip(skip_tokens()),
-        sep_by(
+        sep_end_by(
             property().skip(skip_tokens()),
             token(',').skip(skip_tokens()),
-        ).skip(optional(token(',')))
-            .skip(skip_tokens()),
+        ),
     ).map(Expression::ObjectLiteral)
 }
 
@@ -1298,6 +1297,28 @@ mod expression_test {
                 ""
             ))
         );
+        assert_eq!(
+            primary_expression().parse("{ id, id2 }"),
+            Ok((
+                build_ast!(object [
+                    [[id "id".to_string()]: [id "id".to_string()]],
+                    [[id "id2".to_string()]: [id "id2".to_string()]]
+                ]),
+                ""
+            ))
+        );
+        assert_eq!(
+            primary_expression().parse("{ id, id2, }"),
+            Ok((
+                build_ast!(object [
+                    [[id "id".to_string()]: [id "id".to_string()]],
+                    [[id "id2".to_string()]: [id "id2".to_string()]]
+                ]),
+                ""
+            ))
+        );
+        assert!(primary_expression().parse("{ id id2 }").is_err());
+
     }
 
     #[test]
