@@ -173,33 +173,55 @@ pub enum Expression {
     JsxFragment,
 }
 
+/// This represents the Literal production of the PrimaryExpression rule.
+/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#prod-Literal)
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionLiteral {
+    /// This is a wrapper around the null literal.
     NullLiteral(NullLiteral),
+    /// This is a wrapper around the boolean literal.
     BooleanLiteral(BooleanLiteral),
+    /// This is a wrapper around the number literal.
     NumberLiteral(NumberLiteral),
+    /// This is a wrapper around the string literal.
     StringLiteral(StringLiteral),
 }
 
+/// An object property is a tuple of a key, value, and a tag representing what kind of
+/// property it is.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property {
+    /// The key can be a computed expression, or an id reference.
     pub key: Expression,
+    /// The value can be any sort of expression.
     pub value: Expression,
+    /// The kind tells us if this is a getter, setter, or basic initializer.
     pub kind: PropertyKind,
 }
 
+/// An object property can be a getter, setter, or basic initializer.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropertyKind {
+    /// This just means the value is initialized to the expression. This is the default.
     Init,
+    /// This means the value is a function that gets called when you try to access
+    /// the key in the object. This allows you to return a dynamic value at property
+    /// access time.
     Get,
+    /// This means the value is a function that gets called when you try to
+    /// set the property in the object.
     Set,
 }
 
+/// These operators take 1 operand, update the operands mathematical value in the background,
+/// then return an updated version of the operand.
+///
+/// If the operator is in postfix position, it returns the old value of the operand.
 #[derive(Debug, Clone, PartialEq)]
 pub enum UpdateOperator {
-    // ++
+    /// This will add 1 to the mathematical value of the operand. eg (a++ or ++a)
     Increment,
-    // --
+    /// This will subtract 1 from the mathematical value of the operand eg. (a-- or --a)
     Decrement,
 }
 
