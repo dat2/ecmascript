@@ -12,33 +12,33 @@
 //! feels as if they are working with source text almost directly.
 
 /// NullLiteral is the syntax element for `null`.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-null-literals)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals)
 #[derive(Debug, Clone, PartialEq)]
 pub struct NullLiteral;
 
 /// BooleanLiteral is the syntax element for `true` and `false`.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-boolean-literals)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
 pub type BooleanLiteral = bool;
 
 /// NumberLiteral is the syntax element for numbers. The parser will convert the string
 /// values into an f64 for the sake of simplicity.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-numeric-literals)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
 pub type NumberLiteral = f64;
 
 /// StringLiteral is a syntax element with quotes (single or double).
 /// eg. `'my string literal'` or `"my other string literal"`
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-string-literals)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals)
 pub type StringLiteral = String;
 
 /// Id is an identifier in the ecmascript language.
 /// eg. `var foo = {};`
 /// `foo` is the identifier.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-identifier-names).
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-identifier-names).
 pub type Id = String;
 
 /// RegexLiteral is the syntax element of a regular expression.
 /// eg. `/abc[123]/gi`
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-regular-expression-literals)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals)
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegexLiteral {
     /// This is the text between the slashes.
@@ -50,7 +50,7 @@ pub struct RegexLiteral {
 /// TemplateElement is any text between interpolated expressions inside a template literal.
 /// eg. ``abc ${} \u{2028}``
 /// "abc " and " \u{2028}" would be the TemplateElements for this template literal.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-template-literal-lexical-components)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components)
 #[derive(Debug, Clone, PartialEq)]
 pub struct TemplateElement {
     /// If the template element has any sort of escape sequences (eg. \u{2028})
@@ -67,114 +67,193 @@ pub struct TemplateElement {
 ///
 /// This represents all possible computations that can be done in the ecmascript language.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions)
-/// [Primary Expression](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-primary-expression)
-/// [Left Hand Side Expressions](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-left-hand-side-expressions)
-/// [Update Expressions](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-update-expressions)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions)
+/// [Primary Expression](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-primary-expression)
+/// [Left Hand Side Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-left-hand-side-expressions)
+/// [Update Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-update-expressions)
 /// [JSX Specification](https://facebook.github.io/jsx/)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    /// The 'this' keyword is a primary expression.
     This,
-    IdReference {
-        id: Id,
-    },
-    Literal {
-        literal: ExpressionLiteral,
-    },
-    ArrayLiteral {
-        elements: Vec<Expression>,
-    },
-    ObjectLiteral {
-        properties: Vec<Property>,
-    },
+    /// An identifier can also be a primary expression.
+    IdReference(Id),
+    /// This is all literals minus the regex literal and the template literal.
+    Literal(ExpressionLiteral),
+    /// This is an expression created with [] brackets.
+    ArrayLiteral(Vec<Expression>),
+    /// This is an expression created by using {} brackets.
+    ObjectLiteral(Vec<Property>),
+    /// A function expression is a function defined in an expression position.
+    /// Arrow functions are one where the body is a single statement that is an expression
+    /// statement.
     Function {
+        /// A function expression can be anonymous, where it has no name.
         id: Option<Id>,
+        /// The formal parameters to a function.
         params: Vec<Id>,
+        /// The body is a list of statements. This can include pragmas.
         body: Vec<Statement>,
+        /// This is true if the function was defined with the `async` keyword before the
+        /// `function` keyword.
         async: bool,
+        /// This is true if there is a `*` character after the `function` keyword.
         generator: bool,
     },
-    Class,
-    RegexLiteral {
-        regex: RegexLiteral,
-    },
-    TemplateLiteral {
-        quasis: Vec<TemplateElement>,
-        expressions: Vec<Expression>,
-    },
-    Spread {
-        expression: Box<Expression>,
-    },
+    // Class,
+    /// A regex literal can be used in expression position.
+    /// eg (/asd/.test(123))
+    RegexLiteral(RegexLiteral),
+    /// A Template literal expression has many template elements with expressions littered
+    /// between.
+    ///
+    /// When a template literal gets passed to the tagged template, it usually gets split into
+    /// the quasis (the pieces between the interpolated expressions) as an array for the first
+    /// argument, and the expressions get spread into the rest of the function call.
+    ///
+    /// For the sake of simplicity, we are not representing this in the AST.
+    TemplateLiteral(Vec<TemplateLiteralElement>),
+    /// A spread expression is an expression of the form `...(<expression>)`.
+    Spread(Box<Expression>),
+    /// A member expression is a property access expression.
+    /// Eg. `obj.key` or `obj[computed_key]`
     Member {
+        /// The lhs is the object we're trying to access.
         lhs: Box<Expression>,
+        /// The rhs is the key we're trying to access. It can be computed, or a basic
+        /// IdReference.
         rhs: Box<Expression>,
-        computed: bool, // lhs[rhs]
+        /// This is true if the rhs was written with `[]` notation.
+        computed: bool,
     },
+    /// Super is the `super` keyword, similar to the `this` keyword.
     Super,
+    /// This is the `new.target` expression that was introduced in ES2015. This
+    /// tells you if the function was called with the `new` operator.
     MetaProperty,
+    /// This is the `new MemberExpression` expression. It will construct the callee
+    /// and return an object.
     New {
+        /// The callee is the function we are trying to construct.
         callee: Box<Expression>,
+        /// The arguments is a list of parameters to the function we're trying to construct.
         arguments: Vec<Expression>,
     },
+    /// This is a regular function call, eg. `myFunction(expr1, expr2)`
     Call {
+        /// The callee is the function we're trying to call. It may be an IIFE (immediately
+        /// invoked function expression) or any other dynamic function.
         callee: Box<Expression>,
+        /// The list of parameters to pass to the function.
         arguments: Vec<Expression>,
     },
+    /// This is an expression where we pass the elements of the template literal to the
+    /// tag function.
+    ///
+    /// eg.
+    /// ```javascript
+    /// function tag(stringParts, expr1, expr2) {
+    ///
+    /// }
+    /// tag`123 ${}`
+    /// ```
     TaggedTemplate {
+        /// This is the function we're trying to pass the template elements to.
         tag: Box<Expression>,
-        // quasi can only be a TemplateLiteral
-        // however, we will not make the AST more complicated, and let the
-        // parser produce valid AST elements.
+        /// The only expression that is valid for the quasi, is another TemplateLiteral
+        /// expression. In the interest of simplicity, we are not going to disallow this in the
+        /// AST.
         quasi: Box<Expression>,
     },
+    /// An update expression is either a postfix or prefix, increment or decrement, operator
+    /// applied to an operand.
     Update {
+        /// The operator is either ++ or --
         operator: UpdateOperator,
+        /// The argument is another expression, eg. (++(a))
         argument: Box<Expression>,
+        /// This tells you if the operator is in prefix or postfix position.
         prefix: bool,
     },
+    /// A unary expression is a unary operator in prefix position to the operand.
     Unary {
+        /// The operator is one that can only take a single operand.
         operator: UnaryOperator,
-        prefix: bool,
+        /// The expression is the operand that is passed to the operator.
         argument: Box<Expression>,
     },
+    /// The binary expression is one of the form (lhs operand rhs).
     Binary {
+        /// The operand that is infixed between the operands.
         operator: BinaryOperator,
-        left: Box<Expression>,
-        right: Box<Expression>,
-    },
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-conditional-operator
-    Conditional {
-        test: Box<Expression>,
-        alternate: Box<Expression>,
-        consequent: Box<Expression>,
-    },
-    Assignment {
-        operator: AssignmentOperator,
+        /// The left hand side.
         lhs: Box<Expression>,
+        /// The right hand side.
         rhs: Box<Expression>,
     },
-    ArrowFunction {
-        body: Vec<Statement>,
-        expression: bool,
-        async: bool, // async () =>
+    /// The ternary operator. This is of the form (test ? alternate : consequent)
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-conditional-operator)
+    Conditional {
+        /// The expression before the ?. This must evaluate to a truthy or falsy value.
+        test: Box<Expression>,
+        /// The expression returned if the test expression is truthy.
+        alternate: Box<Expression>,
+        /// The expression returned if the test expression is falsy.
+        consequent: Box<Expression>,
     },
+    /// An assignment operator is one of the form (lhs assigned rhs). This changes the left hand
+    /// side of the expression by applying an operator to the right hand side and the left hand
+    /// side to get the new value of the left hand side.
+    Assignment {
+        /// The operator that is between the operands. This is slightly different to the binary
+        /// expression, as it changes the LHS. The binary operators will return a new value
+        /// instead of changing the left hand side.
+        operator: AssignmentOperator,
+        /// The expression that gets changed in some way. eg. (id = some_new_value)
+        lhs: Box<Expression>,
+        /// The expression that changes the lhs.
+        rhs: Box<Expression>,
+    },
+    /// The yield expression that is only valid inside a generator function.
+    /// It is a syntax error if there is a yield expression in the body of a non generator
+    /// function.
     Yield {
+        /// The generator may yield an expression to the caller, while requesting the caller to
+        /// give back another value.
         argument: Option<Box<Expression>>,
+        /// If the argument is another generator function, they must delegate all their yields to
+        /// until the delegate generator completes.
         delegate: bool, // yield *
     },
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-comma-operator
-    Comma {
-        expressions: Vec<Expression>,
-    },
+    /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
+    /// throw it away, and return the second operand.
+    ///
+    /// For a list of operands, it will evaluate all operands, throw them away, and then
+    /// finally return the last operand.
+    ///
+    /// This is mainly useful for side effects, eg. (console.log(expr), expr).
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
+    Comma(Vec<Expression>),
+    /// *NOTE*: This is an extension to the language proposed by facebook.
+    /// The JsxElement is an inlined expression of the form:
+    /// <name key={value}>
+    /// The JsxElement must be matched by a closing element, or else it is a syntax error.
     JsxElement {
+        /// The name of the element to construct.
         name: String,
+        /// The key={value} pairs.
         attributes: Vec<JsxAttribute>,
+        /// The child elements.
+        children: Vec<Expression>,
     },
-    JsxFragment,
+    ///*NOTE*: This is an extension to the language proposed by facebook.
+    /// This is an anonymous JsxElement, used when you want to return an array of
+    /// elements without actually wrapping things into an unneeded DOM element.
+    JsxFragment(Vec<Expression>),
 }
 
 /// This represents the Literal production of the PrimaryExpression rule.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#prod-Literal)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#prod-Literal)
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionLiteral {
     /// This is a wrapper around the null literal.
@@ -213,6 +292,17 @@ pub enum PropertyKind {
     Set,
 }
 
+/// A template literal element can either be the string between backticks and `${`
+/// or the expression between `${` and `}`.
+/// This is easier than trying to re-construct the order.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TemplateLiteralElement {
+    /// A TemplateElement is the strings between the interpolated expressions.
+    TemplateElement(TemplateElement),
+    /// The expressions that are interpolated into the final value of the string.
+    Expression(Expression),
+}
+
 /// These operators take 1 operand, update the operands mathematical value in the background,
 /// then return an updated version of the operand.
 ///
@@ -226,7 +316,7 @@ pub enum UpdateOperator {
 }
 
 /// These operators take 1 operand, and are a prefix of the operand.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-unary-operators)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-unary-operators)
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     /// Reverse the sign on the operand. This will do type coercion first.
@@ -255,14 +345,14 @@ pub enum UnaryOperator {
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
 /// sake.
 ///
-/// - [Multiplicative Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-multiplicative-operators)
-/// - [Additive Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-additive-operators)
-/// - [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-bitwise-shift-operators)
-/// - [Relational Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-relational-operators)
-/// - [Equality Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-equality-operators)
-/// - [Bitwise Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-bitwise-operators)
-/// - [Logical Operators](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-binary-logical-operators)
-/// - [Exponentiation Operator](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-exp-operator)
+/// - [Multiplicative Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-multiplicative-operators)
+/// - [Additive Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-additive-operators)
+/// - [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-bitwise-shift-operators)
+/// - [Relational Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-relational-operators)
+/// - [Equality Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-equality-operators)
+/// - [Bitwise Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-binary-bitwise-operators)
+/// - [Logical Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-binary-logical-operators)
+/// - [Exponentiation Operator](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-exp-operator)
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     /// The double equal operator that does type coercion. (a == b)
@@ -325,7 +415,7 @@ pub enum BinaryOperator {
 
 /// Assignment operators are ones that signify a chnage to the left hand side of the expression.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-assignment-operators)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-assignment-operators)
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentOperator {
     /// The basic assignment statement. This changes the left hand side to become a
@@ -390,7 +480,7 @@ pub enum JsxAttribute {
 /// instruction to the interpreter to evaluate an expression.
 /// For the sake of simplicity, declarations will get merged into this struct as well.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-statements-and-declarations)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations)
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {}
 
@@ -409,7 +499,7 @@ pub struct Program {
 /// An ECMAScript module can have import and export declarations in it, and has some
 /// other subtle behaviour differences.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-scripts-and-modules)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules)
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceType {
     /// The source text has no import or export declarations.

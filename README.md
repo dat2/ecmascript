@@ -1,6 +1,6 @@
 # ecmascript [![Crates.io](https://img.shields.io/crates/v/ecmascript.svg)](https://crates.io/crates/ecmascript) [![Crates.io](https://img.shields.io/crates/d/ecmascript.svg)](https://crates.io/crates/ecmascript) [![Build Status](https://travis-ci.org/dat2/ecmascript.svg?branch=master)](https://travis-ci.org/dat2/ecmascript) [![codecov](https://codecov.io/gh/dat2/ecmascript/branch/master/graph/badge.svg)](https://codecov.io/gh/dat2/ecmascript)
 
-This is a rust crate to help you with ECMAScript 2017 v8.0. It provides a
+This is a rust crate to help you with ECMAScript 2017 v9.0. It provides a
 parser and an AST (abstract syntax tree) implementation. We also provide
 some macros to construct the AST so you can do interesting things like
 optimization!
@@ -56,7 +56,7 @@ pretty printing uglified code, etc.
 
 # Features
 
-* _ECMAScript 2017 v8.0 support_
+* _ECMAScript 2017 v9.0 support_
   * We are actively developing this library to be up to date!
 * _JSX Extended Support_
   * JSX is meant to be an additive extension to the language
@@ -97,7 +97,7 @@ cargo clippy
 
 # References
 
-* http://www.ecma-international.org/ecma-262/8.0/
+* http://www.ecma-international.org/ecma-262/9.0/
 
 # License
 

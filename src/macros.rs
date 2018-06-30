@@ -31,7 +31,7 @@ macro_rules! build_ast {
     ([$($many:tt)+]) => {
         build_ast!($($many)+)
     };
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar-literals
+    // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar-literals
     (regex_lit /{$pattern:expr}/{$flags:expr}) => {
         RegexLiteral {
             pattern: $pattern,
@@ -53,49 +53,33 @@ macro_rules! build_ast {
             raw: $raw,
         }
     };
-    // https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
+    // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
     (this) => {
         Expression::This
     };
     (id $id:expr) => {
-        Expression::IdReference {
-            id: $id
-        }
+        Expression::IdReference($id)
     };
     (null) => {
-        Expression::Literal {
-            literal: ExpressionLiteral::NullLiteral(NullLiteral)
-        }
+        Expression::Literal(ExpressionLiteral::NullLiteral(NullLiteral))
     };
     (true) => {
-        Expression::Literal {
-            literal: ExpressionLiteral::BooleanLiteral(true)
-        }
+        Expression::Literal(ExpressionLiteral::BooleanLiteral(true))
     };
     (false) => {
-        Expression::Literal {
-            literal: ExpressionLiteral::BooleanLiteral(false)
-        }
+        Expression::Literal(ExpressionLiteral::BooleanLiteral(false))
     };
     (num $lit:expr) => {
-        Expression::Literal {
-            literal: ExpressionLiteral::NumberLiteral($lit)
-        }
+        Expression::Literal(ExpressionLiteral::NumberLiteral($lit))
     };
     (str $lit:expr) => {
-        Expression::Literal {
-            literal: ExpressionLiteral::StringLiteral($lit)
-        }
+        Expression::Literal(ExpressionLiteral::StringLiteral($lit))
     };
     (array [$($elements:tt),*]) => {
-        Expression::ArrayLiteral {
-            elements: vec![$(build_ast!($elements)),*]
-        }
+        Expression::ArrayLiteral(vec![$(build_ast!($elements)),*])
     };
     (obj [$($properties:tt),+]) => {
-        Expression::ObjectLiteral {
-            properties: vec![$(build_ast!($params)),+],
-        }
+        Expression::ObjectLiteral(vec![$(build_ast!($params)),+])
     };
     ([$($key:tt)+]: [$($value:tt)+]) => {
         Property {
@@ -114,9 +98,7 @@ macro_rules! build_ast {
         }
     };
     (...[$($expression:tt)+]) => {
-        Expression::Spread {
-            expression: Box::new(build_ast!($($expression)+))
-        }
+        Expression::Spread(Box::new(build_ast!($($expression)+)))
     };
     // whole bunch of other stuff between
     (call [$($id:tt)+] [$($args:tt)+]) => {
@@ -135,7 +117,8 @@ macro_rules! build_ast {
     (<$id:ident />) => {
         Expression::JsxElement {
             name: stringify!($id).to_string(),
-            attributes: Vec::new()
+            attributes: Vec::new(),
+            children: Vec::new()
         }
     };
         /*

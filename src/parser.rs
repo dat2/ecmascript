@@ -18,11 +18,11 @@ use failure::{self, Error};
 use std::collections::HashSet;
 use unicode_xid::UnicodeXID;
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-lexical-grammar
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar
 
 #[allow(dead_code)]
 /// This parser will consume all following whitespace tokens, including line terminators.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-white-space)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
 fn ws<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
@@ -34,7 +34,7 @@ where
 #[allow(dead_code)]
 /// This parser will consume a single line terminator sequence token. This parser is only needed for the
 /// line_comment parser as it will consume up to a single line terminator token.
-/// [Reference](https://www.ecma-international.org/ecma-262/8.0/index.html#sec-line-terminators)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
 fn line_terminator<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
@@ -48,7 +48,7 @@ where
         .map(|_| ())
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-comments
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
 #[allow(dead_code)]
 fn comment<I>() -> impl Parser<Input = I, Output = ()>
 where
@@ -92,7 +92,7 @@ where
     ws().or(comment())
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-names-and-keywords
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-names-and-keywords
 #[allow(dead_code)]
 fn satisfy_id_start(c: char) -> bool {
     UnicodeXID::is_xid_start(c) || c == '$' || c == '_'
@@ -179,7 +179,7 @@ where
         })
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-reserved-words
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-reserved-words
 lazy_static! {
     static ref KEYWORDS: HashSet<&'static str> = {
         [
@@ -297,7 +297,7 @@ mod lexical_tests {
     }
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-null-literals
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
 #[allow(dead_code)]
 fn null_literal<I>() -> impl Parser<Input = I, Output = NullLiteral>
 where
@@ -307,7 +307,7 @@ where
     string("null").map(|_| NullLiteral)
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-boolean-literals
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
 #[allow(dead_code)]
 fn boolean_literal<I>() -> impl Parser<Input = I, Output = BooleanLiteral>
 where
@@ -320,7 +320,7 @@ where
     ))
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-numeric-literals
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 #[allow(dead_code)]
 fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
 where
@@ -429,7 +429,7 @@ where
     ).map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-string-literals
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
 #[allow(dead_code)]
 fn string_literal<I>() -> impl Parser<Input = I, Output = String>
 where
@@ -555,7 +555,7 @@ where
     })
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#prod-UnicodeEscapeSequence
+// https://www.ecma-international.org/ecma-262/9.0/index.html#prod-UnicodeEscapeSequence
 #[allow(dead_code)]
 fn unicode_escape_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
 where
@@ -591,7 +591,7 @@ where
     })
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-literals-regular-expression-literals
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
 #[allow(dead_code)]
 fn regex_literal<I>() -> impl Parser<Input = I, Output = RegexLiteral>
 where
@@ -670,7 +670,7 @@ where
     })
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-template-literal-lexical-components
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
 #[allow(dead_code)]
 fn template<I>() -> impl Parser<Input = I, Output = TemplateElement>
 where
@@ -1018,7 +1018,7 @@ mod literal_tests {
     }
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-expressions
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
 #[allow(dead_code)]
 fn primary_expression<I>() -> impl Parser<Input = I, Output = Expression>
 where
@@ -1049,7 +1049,7 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    identifier().map(|id| Expression::IdReference { id })
+    identifier().map(Expression::IdReference)
 }
 
 #[allow(dead_code)]
@@ -1059,18 +1059,10 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice((
-        try(null_literal()).map(|n| Expression::Literal {
-            literal: ExpressionLiteral::NullLiteral(n),
-        }),
-        try(boolean_literal()).map(|n| Expression::Literal {
-            literal: ExpressionLiteral::BooleanLiteral(n),
-        }),
-        try(numeric_literal()).map(|n| Expression::Literal {
-            literal: ExpressionLiteral::NumberLiteral(n),
-        }),
-        try(string_literal()).map(|n| Expression::Literal {
-            literal: ExpressionLiteral::StringLiteral(n),
-        }),
+        try(null_literal()).map(|n| Expression::Literal(ExpressionLiteral::NullLiteral(n))),
+        try(boolean_literal()).map(|n| Expression::Literal(ExpressionLiteral::BooleanLiteral(n))),
+        try(numeric_literal()).map(|n| Expression::Literal(ExpressionLiteral::NumberLiteral(n))),
+        try(string_literal()).map(|n| Expression::Literal(ExpressionLiteral::StringLiteral(n))),
     ))
 }
 
@@ -1084,7 +1076,7 @@ where
         token('[').skip(skip_tokens()),
         token(']').skip(skip_tokens()),
         elision().with(element_list()).skip(elision()),
-    ).map(|elements| Expression::ArrayLiteral { elements })
+    ).map(Expression::ArrayLiteral)
 }
 
 #[allow(dead_code)]
@@ -1113,9 +1105,8 @@ where
 {
     string("...")
         .with(assignment_expression())
-        .map(|expression| Expression::Spread {
-            expression: Box::new(expression),
-        })
+        .map(Box::new)
+        .map(Expression::Spread)
 }
 
 #[allow(dead_code)]
@@ -1163,6 +1154,7 @@ where
     between(token('<'), string("/>"), identifier()).map(|name| Expression::JsxElement {
         name,
         attributes: Vec::new(),
+        children: Vec::new(),
     })
 }
 
@@ -1172,46 +1164,28 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    (jsx_opening_element(), skip_tokens(), jsx_closing_element()).then(
-        |(opening, _, closing_name)| {
-            if let Expression::JsxElement { name, .. } = &opening {
-                if *name == closing_name {
-                    value(opening.clone()).left()
-                } else {
-                    unexpected("closing element")
-                        .map(|_| Expression::JsxElement {
-                            name: String::new(),
-                            attributes: Vec::new(),
-                        })
-                        .message("closing name is not the same as opening name")
-                        .right()
-                }
-            } else {
-                unreachable!()
-            }
-        },
-    )
-}
-
-#[allow(dead_code)]
-fn jsx_opening_element<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    between(token('<'), string(">"), identifier()).map(|name| Expression::JsxElement {
-        name,
-        attributes: Vec::new(),
+    (
+        between(token('<'), string(">"), identifier()),
+        skip_tokens(),
+        between(string("</"), token('>'), identifier()),
+    ).then(|(opening_name, _, closing_name)| {
+        if opening_name == closing_name {
+            value(Expression::JsxElement {
+                name: opening_name,
+                attributes: Vec::new(),
+                children: Vec::new(),
+            }).left()
+        } else {
+            unexpected("closing element")
+                .map(|_| Expression::JsxElement {
+                    name: String::new(),
+                    attributes: Vec::new(),
+                    children: Vec::new(),
+                })
+                .message("closing name is not the same as opening name")
+                .right()
+        }
     })
-}
-
-#[allow(dead_code)]
-fn jsx_closing_element<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    between(string("</"), token('>'), identifier())
 }
 
 #[cfg(test)]
@@ -1292,11 +1266,11 @@ mod expression_test {
     }
 }
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-statements-and-declarations
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-functions-and-classes
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
-// https://www.ecma-international.org/ecma-262/8.0/index.html#sec-ecmascript-language-scripts-and-modules
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
 #[allow(dead_code)]
 fn program<I>() -> impl Parser<Input = I, Output = Program>
 where
