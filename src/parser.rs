@@ -1000,6 +1000,15 @@ where
 }
 
 #[allow(dead_code)]
+fn formal_parameter<I>() -> impl Parser<Input = I, Output = Pattern>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    identifier().map(Pattern::Identifier)
+}
+
+#[allow(dead_code)]
 fn function_body<I>(_yield: bool, _await: bool) -> impl Parser<Input = I, Output = Vec<Statement>>
 where
     I: Stream<Item = char>,
@@ -1019,6 +1028,8 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice((
+        try(getter_method_definition()),
+        try(setter_method_definition()),
         try(generator_method_definition()),
         try(async_generator_method_definition()),
         try(async_method_definition()),
@@ -1098,6 +1109,68 @@ where
         skip_tokens(),
         basic_method_definition(true, true),
     ).map(|x| x.4)
+}
+
+#[allow(dead_code)]
+fn getter_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        string("get"),
+        skip_tokens(),
+        property_name(),
+        skip_tokens(),
+        token('('),
+        skip_tokens(),
+        token(')'),
+        skip_tokens(),
+        function_body(false, false),
+    ).map(|(_, _, key, _, _, _, _, _, body)| Property {
+        key,
+        value: Expression::Function {
+            id: None,
+            async: false,
+            generator: false,
+            body,
+            params: Vec::new(),
+        },
+        kind: PropertyKind::Get,
+        is_spread: false,
+    })
+}
+
+#[allow(dead_code)]
+fn setter_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        string("set"),
+        skip_tokens(),
+        property_name(),
+        skip_tokens(),
+        token('('),
+        skip_tokens(),
+        formal_parameter(),
+        skip_tokens(),
+        token(')'),
+        skip_tokens(),
+        function_body(false, false),
+    ).map(|(_, _, key, _, _, _, param, _, _, _, body)| Property {
+        key,
+        value: Expression::Function {
+            id: None,
+            async: false,
+            generator: false,
+            body,
+            params: vec![param],
+        },
+        kind: PropertyKind::Set,
+        is_spread: false,
+    })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules

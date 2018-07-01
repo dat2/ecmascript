@@ -574,6 +574,32 @@ fn test_object_literal_method_definition_async_generator() {
 }
 
 #[test]
+fn test_object_literal_method_definition_getter() {
+    assert_eq!(
+        primary_expression().parse("{ get key() {  } }"),
+        Ok((
+            build_ast!(object [
+                [get [id "key".to_string()] [function [] []]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_method_definition_setter() {
+    assert_eq!(
+        primary_expression().parse("{ set key(value) {  } }"),
+        Ok((
+            build_ast!(object [
+                [set [id "key".to_string()] [function [[p_id "value".to_string()]] []]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
 fn test_jsx_self_closing() {
     assert_eq!(
         primary_expression().parse("<div/>"),

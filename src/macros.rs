@@ -89,6 +89,22 @@ macro_rules! build_ast {
             is_spread: false
         }
     };
+    (get [$($key:tt)+] [$($value:tt)+]) => {
+        Property {
+            key: build_ast!($($key)+),
+            value: build_ast!($($value)+),
+            kind: PropertyKind::Get,
+            is_spread: false
+        }
+    };
+    (set [$($key:tt)+] [$($value:tt)+]) => {
+        Property {
+            key: build_ast!($($key)+),
+            value: build_ast!($($value)+),
+            kind: PropertyKind::Set,
+            is_spread: false
+        }
+    };
     (function [$($params:tt),*] [$($body:tt),*]) => {
         Expression::Function {
             id: None,
@@ -133,6 +149,18 @@ macro_rules! build_ast {
             generator: false,
             async: false
         }
+    };
+    (function [$($params:tt),*] {$body:expr}) => {
+        Expression::Function {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: $body,
+            generator: false,
+            async: false
+        }
+    };
+    (p_id $id:expr) => {
+        Pattern::Identifier($id)
     };
     (...[$($expression:tt)+]) => {
         Expression::Spread(Box::new(build_ast!($($expression)+)))
