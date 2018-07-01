@@ -483,6 +483,32 @@ fn test_object_literal_initializer() {
 }
 
 #[test]
+fn test_object_literal_initializer_string_literal() {
+    assert_eq!(
+        primary_expression().parse("{ 'id': true }"),
+        Ok((
+            build_ast!(object [
+                [[str "id".to_string()]: [true]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_initializer_numeric_literal() {
+    assert_eq!(
+        primary_expression().parse("{ 0: true }"),
+        Ok((
+            build_ast!(object [
+                [[num 0f64]: [true]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
 fn test_jsx_self_closing() {
     assert_eq!(
         primary_expression().parse("<div/>"),

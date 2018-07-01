@@ -262,7 +262,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 #[allow(dead_code)]
-pub(crate) fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+pub(crate) fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -276,7 +276,7 @@ where
 }
 
 #[allow(dead_code)]
-fn decimal_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+fn decimal_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -331,7 +331,7 @@ where
 }
 
 #[allow(dead_code)]
-fn binary_integer_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+fn binary_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -344,7 +344,7 @@ where
 }
 
 #[allow(dead_code)]
-fn octal_integer_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+fn octal_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -357,7 +357,7 @@ where
 }
 
 #[allow(dead_code)]
-fn hex_integer_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+fn hex_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -753,7 +753,7 @@ where
     choice((
         try(null_literal()).map(ExpressionLiteral::NullLiteral),
         try(boolean_literal()).map(ExpressionLiteral::BooleanLiteral),
-        try(numeric_literal()).map(ExpressionLiteral::NumberLiteral),
+        try(numeric_literal()).map(ExpressionLiteral::NumericLiteral),
         try(string_literal()).map(ExpressionLiteral::StringLiteral),
     )).map(Expression::Literal)
 }
@@ -835,7 +835,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     (
-        identifier_reference(),
+        literal_property_name(),
         skip_tokens(),
         token(':'),
         skip_tokens(),
@@ -846,6 +846,23 @@ where
         kind: PropertyKind::Init,
         is_spread: false,
     })
+}
+
+#[allow(dead_code)]
+fn literal_property_name<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((
+        identifier_reference(),
+        string_literal()
+            .map(ExpressionLiteral::StringLiteral)
+            .map(Expression::Literal),
+        numeric_literal()
+            .map(ExpressionLiteral::NumericLiteral)
+            .map(Expression::Literal),
+    ))
 }
 
 #[allow(dead_code)]

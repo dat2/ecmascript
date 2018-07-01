@@ -20,10 +20,10 @@ pub struct NullLiteral;
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
 pub type BooleanLiteral = bool;
 
-/// NumberLiteral is the syntax element for numbers. The parser will convert the string
+/// NumericLiteral is the syntax element for numbers. The parser will convert the string
 /// values into an f64 for the sake of simplicity.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
-pub type NumberLiteral = f64;
+pub type NumericLiteral = f64;
 
 /// StringLiteral is a syntax element with quotes (single or double).
 /// eg. `'my string literal'` or `"my other string literal"`
@@ -261,7 +261,7 @@ pub enum ExpressionLiteral {
     /// This is a wrapper around the boolean literal.
     BooleanLiteral(BooleanLiteral),
     /// This is a wrapper around the number literal.
-    NumberLiteral(NumberLiteral),
+    NumericLiteral(NumericLiteral),
     /// This is a wrapper around the string literal.
     StringLiteral(StringLiteral),
 }

@@ -70,7 +70,7 @@ macro_rules! build_ast {
         Expression::Literal(ExpressionLiteral::BooleanLiteral(false))
     };
     (num $lit:expr) => {
-        Expression::Literal(ExpressionLiteral::NumberLiteral($lit))
+        Expression::Literal(ExpressionLiteral::NumericLiteral($lit))
     };
     (str $lit:expr) => {
         Expression::Literal(ExpressionLiteral::StringLiteral($lit))
