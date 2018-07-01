@@ -1,5 +1,4 @@
 use ast::*;
-use combine::stream::state::State;
 use combine::{eof, Parser};
 use parser::*;
 
@@ -529,6 +528,45 @@ fn test_object_literal_method_definition() {
         Ok((
             build_ast!(object [
                 [[id "method".to_string()]: [function [] []]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_method_definition_generator() {
+    assert_eq!(
+        primary_expression().parse("{ * method() {  } }"),
+        Ok((
+            build_ast!(object [
+                [[id "method".to_string()]: [function * [] []]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_method_definition_async() {
+    assert_eq!(
+        primary_expression().parse("{ async method() {  } }"),
+        Ok((
+            build_ast!(object [
+                [[id "method".to_string()]: [async function [] []]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_method_definition_async_generator() {
+    assert_eq!(
+        primary_expression().parse("{ async * method() {  } }"),
+        Ok((
+            build_ast!(object [
+                [[id "method".to_string()]: [async function * [] []]]
             ]),
             ""
         ))

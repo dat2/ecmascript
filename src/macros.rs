@@ -98,6 +98,33 @@ macro_rules! build_ast {
             async: false
         }
     };
+    (function * [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::Function {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: true,
+            async: false
+        }
+    };
+    (async function [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::Function {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: false,
+            async: true
+        }
+    };
+    (async function * [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::Function {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: true,
+            async: true
+        }
+    };
     (function [$($params:tt),*] {$body:expr}) => {
         Expression::Function {
             id: None,

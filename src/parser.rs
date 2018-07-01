@@ -985,8 +985,22 @@ where
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
+
 #[allow(dead_code)]
-fn function_body<I>() -> impl Parser<Input = I, Output = Vec<Statement>>
+fn formal_parameters<I>() -> impl Parser<Input = I, Output = Vec<Pattern>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        token('(').skip(skip_tokens()),
+        token(')'),
+        value(Vec::new()),
+    )
+}
+
+#[allow(dead_code)]
+fn function_body<I>(_yield: bool, _await: bool) -> impl Parser<Input = I, Output = Vec<Statement>>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -1004,11 +1018,19 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    basic_method_definition()
+    choice((
+        try(generator_method_definition()),
+        try(async_generator_method_definition()),
+        try(async_method_definition()),
+        basic_method_definition(false, false),
+    ))
 }
 
 #[allow(dead_code)]
-fn basic_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+fn basic_method_definition<I>(
+    _yield: bool,
+    _await: bool,
+) -> impl Parser<Input = I, Output = Property>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -1018,13 +1040,17 @@ where
         skip_tokens(),
         formal_parameters(),
         skip_tokens(),
-        function_body(),
-    ).map(|(key, _, params, _, body)| Property {
+        function_body(_yield, _await),
+        // lololol
+        // the value here is just to pass the yield and await into the map below
+        value(_yield),
+        value(_await),
+    ).map(|(key, _, params, _, body, _yield, _await)| Property {
         key,
         value: Expression::Function {
             id: None,
-            async: false,
-            generator: false,
+            async: _await,
+            generator: _yield,
             body,
             params,
         },
@@ -1034,16 +1060,44 @@ where
 }
 
 #[allow(dead_code)]
-fn formal_parameters<I>() -> impl Parser<Input = I, Output = Vec<Pattern>>
+fn generator_method_definition<I>() -> impl Parser<Input = I, Output = Property>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    between(
-        token('(').skip(skip_tokens()),
-        token(')'),
-        value(Vec::new()),
-    )
+    (
+        token('*'),
+        skip_tokens(),
+        basic_method_definition(true, false),
+    ).map(|x| x.2)
+}
+
+#[allow(dead_code)]
+fn async_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        string("async"),
+        skip_tokens(),
+        basic_method_definition(false, true),
+    ).map(|x| x.2)
+}
+
+#[allow(dead_code)]
+fn async_generator_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        string("async"),
+        skip_tokens(),
+        token('*'),
+        skip_tokens(),
+        basic_method_definition(true, true),
+    ).map(|x| x.4)
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
