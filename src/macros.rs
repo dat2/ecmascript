@@ -150,15 +150,6 @@ macro_rules! build_ast {
             async: false
         }
     };
-    (function [$($params:tt),*] {$body:expr}) => {
-        Expression::Function {
-            id: None,
-            params: vec![$(build_ast!($params)),*],
-            body: $body,
-            generator: false,
-            async: false
-        }
-    };
     (p_id $id:expr) => {
         Pattern::Identifier($id)
     };
