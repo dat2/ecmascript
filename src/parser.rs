@@ -835,7 +835,7 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     (
-        literal_property_name(),
+        property_name(),
         skip_tokens(),
         token(':'),
         skip_tokens(),
@@ -846,6 +846,15 @@ where
         kind: PropertyKind::Init,
         is_spread: false,
     })
+}
+
+#[allow(dead_code)]
+fn property_name<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((try(literal_property_name()), try(computed_property_name())))
 }
 
 #[allow(dead_code)]
@@ -863,6 +872,19 @@ where
             .map(ExpressionLiteral::NumericLiteral)
             .map(Expression::Literal),
     ))
+}
+
+#[allow(dead_code)]
+fn computed_property_name<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        token('[').skip(skip_tokens()),
+        token(']'),
+        assignment_expression(),
+    )
 }
 
 #[allow(dead_code)]

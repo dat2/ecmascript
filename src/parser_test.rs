@@ -509,6 +509,19 @@ fn test_object_literal_initializer_numeric_literal() {
 }
 
 #[test]
+fn test_object_literal_initializer_computed() {
+    assert_eq!(
+        primary_expression().parse("{ [yield]: true }"),
+        Ok((
+            build_ast!(object [
+                [[yield]: [true]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
 fn test_jsx_self_closing() {
     assert_eq!(
         primary_expression().parse("<div/>"),
