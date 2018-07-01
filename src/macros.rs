@@ -86,6 +86,7 @@ macro_rules! build_ast {
             key: build_ast!($($key)+),
             value: build_ast!($($value)+),
             kind: PropertyKind::Init,
+            is_spread: false
         }
     };
     (function [$($params:tt),+] {$body:expr}) => {

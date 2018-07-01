@@ -14,5 +14,7 @@ extern crate unicode_xid;
 mod macros;
 pub mod ast;
 pub mod parser;
+#[cfg(test)]
+mod parser_test;
 
 pub use parser::parse;

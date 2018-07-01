@@ -276,6 +276,8 @@ pub struct Property {
     pub value: Expression,
     /// The kind tells us if this is a getter, setter, or basic initializer.
     pub kind: PropertyKind,
+    /// This means the property was spread from another property.
+    pub is_spread: bool,
 }
 
 /// An object property can be a getter, setter, or basic initializer.

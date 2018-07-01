@@ -50,7 +50,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
 #[allow(dead_code)]
-fn comment<I>() -> impl Parser<Input = I, Output = ()>
+pub(crate) fn comment<I>() -> impl Parser<Input = I, Output = ()>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -154,7 +154,7 @@ where
 
 // TODO strict mode
 #[allow(dead_code)]
-fn identifier<I>() -> impl Parser<Input = I, Output = String>
+pub(crate) fn identifier<I>() -> impl Parser<Input = I, Output = String>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -181,7 +181,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-reserved-words
 lazy_static! {
-    static ref KEYWORDS: HashSet<&'static str> = {
+    pub(crate) static ref KEYWORDS: HashSet<&'static str> = {
         [
             "await",
             "break",
@@ -221,9 +221,9 @@ lazy_static! {
             .cloned()
             .collect()
     };
-    static ref FUTURE_RESERVED_WORDS: HashSet<&'static str> =
+    pub(crate) static ref FUTURE_RESERVED_WORDS: HashSet<&'static str> =
         { ["enum"].iter().cloned().collect() };
-    static ref FUTURE_RESERVED_WORDS_STRICT: HashSet<&'static str> = {
+    pub(crate) static ref FUTURE_RESERVED_WORDS_STRICT: HashSet<&'static str> = {
         [
             "implements",
             "package",
@@ -237,69 +237,9 @@ lazy_static! {
     };
 }
 
-#[cfg(test)]
-mod lexical_tests {
-    use super::*;
-
-    #[test]
-    fn test_line_comment() {
-        assert_eq!(comment().parse("//\n"), Ok(((), "")));
-        assert_eq!(comment().parse("// hello\n"), Ok(((), "")));
-    }
-
-    #[test]
-    fn test_block_comment() {
-        assert_eq!(comment().parse("/**/"), Ok(((), "")));
-        assert_eq!(comment().parse("/* * */"), Ok(((), "")));
-        assert_eq!(comment().parse("/** * **/"), Ok(((), "")));
-        assert_eq!(comment().parse("/* hello *\n\t */"), Ok(((), "")));
-    }
-
-    #[test]
-    fn test_identifier() {
-        // making sure that the unicode_escape_sequence satisifies things
-        // eg. ZWNJ and ZWJ are not allowed as starts
-        assert!(identifier().parse(r"\u000a").is_err());
-        assert!(identifier().parse(r"\u200d").is_err());
-        assert!(identifier().parse(r"\u200c").is_err());
-        // testing $, _, unicode_escape_sequence as start
-        assert_eq!(identifier().parse(r"\u24"), Ok(("$".to_string(), "")));
-        assert_eq!(identifier().parse(r"_"), Ok(("_".to_string(), "")));
-        // testing $, _, ZWNJ, ZWJ, unicode_escape_sequence as continue
-        assert_eq!(identifier().parse(r"a_"), Ok(("a_".to_string(), "")));
-        assert_eq!(identifier().parse(r"a$"), Ok(("a$".to_string(), "")));
-        assert_eq!(
-            identifier().parse(r"_\u200d"),
-            Ok(("_\u{200d}".to_string(), ""))
-        );
-        assert_eq!(
-            identifier().parse(r"_\u200c"),
-            Ok(("_\u{200c}".to_string(), ""))
-        );
-    }
-
-    #[test]
-    fn test_identifier_reserved_word() {
-        for &keyword in KEYWORDS.iter() {
-            assert!(identifier().parse(keyword).is_err());
-        }
-        for &keyword in FUTURE_RESERVED_WORDS.iter() {
-            assert!(identifier().parse(keyword).is_err());
-        }
-        for &keyword in FUTURE_RESERVED_WORDS_STRICT.iter() {
-            assert!(identifier().parse(keyword).is_err());
-        }
-        // null literal
-        assert!(identifier().parse("null").is_err());
-        // boolean literal
-        assert!(identifier().parse("true").is_err());
-        assert!(identifier().parse("false").is_err());
-    }
-}
-
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
 #[allow(dead_code)]
-fn null_literal<I>() -> impl Parser<Input = I, Output = NullLiteral>
+pub(crate) fn null_literal<I>() -> impl Parser<Input = I, Output = NullLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -309,7 +249,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
 #[allow(dead_code)]
-fn boolean_literal<I>() -> impl Parser<Input = I, Output = BooleanLiteral>
+pub(crate) fn boolean_literal<I>() -> impl Parser<Input = I, Output = BooleanLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -322,7 +262,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 #[allow(dead_code)]
-fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
+pub(crate) fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumberLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -431,7 +371,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
 #[allow(dead_code)]
-fn string_literal<I>() -> impl Parser<Input = I, Output = String>
+pub(crate) fn string_literal<I>() -> impl Parser<Input = I, Output = String>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -593,7 +533,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
 #[allow(dead_code)]
-fn regex_literal<I>() -> impl Parser<Input = I, Output = RegexLiteral>
+pub(crate) fn regex_literal<I>() -> impl Parser<Input = I, Output = RegexLiteral>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -672,7 +612,7 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
 #[allow(dead_code)]
-fn template<I>() -> impl Parser<Input = I, Output = TemplateElement>
+pub(crate) fn template<I>() -> impl Parser<Input = I, Output = TemplateElement>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -715,7 +655,7 @@ where
 }
 
 #[allow(dead_code)]
-fn template_character<I>() -> impl Parser<Input = I, Output = (char, String)>
+pub(crate) fn template_character<I>() -> impl Parser<Input = I, Output = (char, String)>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -729,7 +669,7 @@ where
 }
 
 #[allow(dead_code)]
-fn template_substition_tail<I>() -> impl Parser<Input = I, Output = TemplateElement>
+pub(crate) fn template_substition_tail<I>() -> impl Parser<Input = I, Output = TemplateElement>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -769,258 +709,9 @@ where
         })
 }
 
-#[cfg(test)]
-mod literal_tests {
-    use super::*;
-
-    #[test]
-    fn test_null_literal() {
-        assert_eq!(null_literal().parse("null"), Ok((NullLiteral, "")));
-    }
-
-    #[test]
-    fn test_boolean_literal() {
-        assert_eq!(boolean_literal().parse("true"), Ok((true, "")));
-        assert_eq!(boolean_literal().parse("false"), Ok((false, "")));
-    }
-
-    #[test]
-    fn test_number_literal() {
-        // decimal
-        assert_eq!(numeric_literal().parse("0"), Ok((0f64, "")));
-        assert!(numeric_literal().parse("01").is_err());
-        assert!(numeric_literal().parse("01.").is_err());
-        assert_eq!(numeric_literal().parse("9"), Ok((9f64, "")));
-        assert_eq!(numeric_literal().parse("10"), Ok((10f64, "")));
-        assert_eq!(numeric_literal().parse("0.1"), Ok((0.1f64, "")));
-        assert_eq!(numeric_literal().parse(".1"), Ok((0.1f64, "")));
-        assert_eq!(numeric_literal().parse("1e1"), Ok((10f64, "")));
-        assert_eq!(numeric_literal().parse(".1e1"), Ok((1f64, "")));
-        assert_eq!(numeric_literal().parse("1.1e1"), Ok((11f64, "")));
-
-        // binary
-        assert_eq!(numeric_literal().parse("0b1010"), Ok((10f64, "")));
-        assert_eq!(numeric_literal().parse("0B1010"), Ok((10f64, "")));
-        // octal
-        assert_eq!(numeric_literal().parse("0o123"), Ok((83f64, "")));
-        assert_eq!(numeric_literal().parse("0O123"), Ok((83f64, "")));
-        // hex
-        assert_eq!(
-            numeric_literal().parse("0xDEADBEEF"),
-            Ok((3735928559f64, ""))
-        );
-        assert_eq!(
-            numeric_literal().parse("0XDEADBEEF"),
-            Ok((3735928559f64, ""))
-        );
-    }
-
-    #[test]
-    fn test_string_literal() {
-        // empty
-        assert_eq!(string_literal().parse(r#""""#), Ok((String::new(), "")));
-        assert_eq!(string_literal().parse("''"), Ok((String::new(), "")));
-        // not allowed chars
-        for not_allowed_char in "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}".chars() {
-            let double_quote_slice: &str = &format!("\"{}\"", not_allowed_char);
-            let single_quote_slice: &str = &format!("'{}'", not_allowed_char);
-            assert!(string_literal().parse(double_quote_slice).is_err());
-            assert!(string_literal().parse(single_quote_slice).is_err());
-        }
-        // character escape sequences
-        for escaped_character in r#"'"\bfnrtv"#.chars() {
-            let double_quote_slice: &str = &format!("\"\\{}\"", escaped_character);
-            let single_quote_slice: &str = &format!("'\\{}'", escaped_character);
-            assert!(string_literal().parse(double_quote_slice).is_ok());
-            assert!(string_literal().parse(single_quote_slice).is_ok());
-        }
-        // non character escape sequences
-        assert_eq!(string_literal().parse("\"\\a\""), Ok(("a".to_string(), "")));
-        assert_eq!(string_literal().parse("'\\a'"), Ok(("a".to_string(), "")));
-
-        // hex escape sequence
-        assert_eq!(
-            string_literal().parse(r#""\x0A""#),
-            Ok(("\n".to_string(), ""))
-        );
-        assert_eq!(
-            string_literal().parse(r"'\x0a'"),
-            Ok(("\n".to_string(), ""))
-        );
-        // unicode escape sequence
-        assert_eq!(
-            string_literal().parse(r#""\u2764""#),
-            Ok(("❤".to_string(), ""))
-        );
-        assert_eq!(
-            string_literal().parse(r"'\u2764'"),
-            Ok(("❤".to_string(), ""))
-        );
-        assert_eq!(
-            string_literal().parse(r#""\u{2764}""#),
-            Ok(("❤".to_string(), ""))
-        );
-        assert_eq!(
-            string_literal().parse(r"'\u{2764}'"),
-            Ok(("❤".to_string(), ""))
-        );
-        assert!(string_literal().parse(r"'\u{110000}'").is_err());
-
-        // line continuation
-        for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
-            let double_quote_slice: &str = &format!("\"\\{}\"", line_continuation_char);
-            let single_quote_slice: &str = &format!("'\\{}'", line_continuation_char);
-            assert!(string_literal().parse(double_quote_slice).is_err());
-            assert!(string_literal().parse(single_quote_slice).is_err());
-        }
-    }
-
-    #[test]
-    fn test_regex_literal() {
-        // must be non empty
-        assert!(regex_literal().parse("//").is_err());
-
-        // not allowed first chars
-        for c in "*\\/[".chars() {
-            let slice: &str = &format!("/{}/", c);
-            assert!(regex_literal().parse(slice).is_err());
-        }
-
-        // backslash as first char
-        assert_eq!(
-            regex_literal().parse("/\\a/"),
-            Ok((build_ast!(regex_lit /{"\\a".to_string()}/), ""))
-        );
-
-        // character class as first char
-        assert_eq!(
-            regex_literal().parse("/[ab]/"),
-            Ok((build_ast!(regex_lit /{"[ab]".to_string()}/), ""))
-        );
-
-        // not allowed second chars
-        /*
-        for c in "\\/[".chars() {
-            let slice: &str = &format!("/a{}/", c);
-            assert!(regex_literal().parse(slice).is_err());
-        }
-        */
-
-        // backslash as second char
-        assert_eq!(
-            regex_literal().parse("/a\\a/"),
-            Ok((build_ast!(regex_lit /{"a\\a".to_string()}/), ""))
-        );
-
-        // character class as second char
-        assert_eq!(
-            regex_literal().parse("/a[ab]/"),
-            Ok((build_ast!(regex_lit /{"a[ab]".to_string()}/), ""))
-        );
-
-        // character class with unallowed chars
-        /*
-        for c in "\\/]".chars() {
-            let slice: &str = &format!("/a[{}]/", c);
-            assert!(regex_literal().parse(slice).is_err());
-        }
-        */
-
-        // character class with backslash
-        assert_eq!(
-            regex_literal().parse("/a[ab\\]]/"),
-            Ok((build_ast!(regex_lit /{"a[ab\\]]".to_string()}/), ""))
-        );
-
-        // flags
-        assert_eq!(
-            regex_literal().parse("/a/f"),
-            Ok((
-                build_ast!(regex_lit / { "a".to_string() } / { "f".to_string() }),
-                ""
-            ))
-        );
-        assert_eq!(
-            regex_literal().parse("/a/fi"),
-            Ok((
-                build_ast!(regex_lit / { "a".to_string() } / { "fi".to_string() }),
-                ""
-            ))
-        );
-        assert!(regex_literal().skip(eof()).parse("/a/\\u1234").is_err());
-    }
-
-    #[test]
-    fn test_template_elements() {
-        // empty
-        assert_eq!(
-            template().parse("``"),
-            Ok((build_ast!(templ_el {String::new()}), ""))
-        );
-
-        // no_substitution_template
-        assert_eq!(
-            template().parse("`asd`"),
-            Ok((build_ast!(templ_el {"asd".to_string()}), ""))
-        );
-
-        // template_head
-        assert_eq!(
-            template().parse("`asd ${eval}`"),
-            Ok((build_ast!(templ_el {"asd ".to_string()}), "eval}`"))
-        );
-
-        // template_middle
-        assert_eq!(
-            template_substition_tail().parse("} asd ${eval}`"),
-            Ok((build_ast!(templ_el {" asd ".to_string()}), "eval}`"))
-        );
-
-        // template_tail
-        assert_eq!(
-            template_substition_tail().parse("} asd"),
-            Ok((build_ast!(templ_el {" asd".to_string()}), ""))
-        );
-
-        // $
-        assert_eq!(
-            template_character().parse("$123"),
-            Ok((('$', "$".to_string()), "123"))
-        );
-        // escape sequence
-        assert_eq!(
-            template_character().parse("\\n"),
-            Ok((('\n', "\\n".to_string()), ""))
-        );
-        assert_eq!(
-            template_character().parse("\\x0A"),
-            Ok((('\n', "\\x0A".to_string()), ""))
-        );
-        assert_eq!(
-            template_character().parse("\\u2764"),
-            Ok((('❤', "\\u2764".to_string()), ""))
-        );
-        assert_eq!(
-            template_character().parse("\\u{2764}"),
-            Ok((('❤', "\\u{2764}".to_string()), ""))
-        );
-        // line continuation
-        for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
-            let slice: &str = &line_continuation_char.to_string();
-            assert_eq!(
-                template_character().parse(slice),
-                Ok((
-                    (line_continuation_char, line_continuation_char.to_string()),
-                    ""
-                ))
-            );
-        }
-    }
-}
-
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
 #[allow(dead_code)]
-fn primary_expression<I>() -> impl Parser<Input = I, Output = Expression>
+pub(crate) fn primary_expression<I>() -> impl Parser<Input = I, Output = Expression>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -1108,14 +799,23 @@ where
         token('{').skip(skip_tokens()),
         token('}').skip(skip_tokens()),
         sep_end_by(
-            property().skip(skip_tokens()),
+            property_definition().skip(skip_tokens()),
             token(',').skip(skip_tokens()),
         ),
     ).map(Expression::ObjectLiteral)
 }
 
 #[allow(dead_code)]
-fn property<I>() -> impl Parser<Input = I, Output = Property>
+fn property_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((try(property_initializer()), try(shorthand_property())))
+}
+
+#[allow(dead_code)]
+fn shorthand_property<I>() -> impl Parser<Input = I, Output = Property>
 where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -1124,6 +824,27 @@ where
         key: id.clone(),
         value: id,
         kind: PropertyKind::Init,
+        is_spread: false,
+    })
+}
+
+#[allow(dead_code)]
+fn property_initializer<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        identifier_reference(),
+        skip_tokens(),
+        token(':'),
+        skip_tokens(),
+        literal(),
+    ).map(|(key, _, _, _, value)| Property {
+        key,
+        value,
+        kind: PropertyKind::Init,
+        is_spread: false,
     })
 }
 
@@ -1216,123 +937,6 @@ where
                 .right()
         }
     })
-}
-
-#[cfg(test)]
-mod expression_test {
-    use super::*;
-
-    #[test]
-    fn test_this() {
-        assert_eq!(
-            primary_expression().parse("this"),
-            Ok((build_ast!(this), ""))
-        );
-    }
-
-    #[test]
-    fn test_identifier_reference() {
-        assert_eq!(
-            primary_expression().parse("abc123"),
-            Ok((build_ast!(id "abc123".to_string()), ""))
-        );
-    }
-
-    #[test]
-    fn test_literal() {
-        assert_eq!(
-            primary_expression().parse("null"),
-            Ok((build_ast!(null), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("true"),
-            Ok((build_ast!(true), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("false"),
-            Ok((build_ast!(false), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("123.e1"),
-            Ok((build_ast!(num 1230f64), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("'abc'"),
-            Ok((build_ast!(str "abc".to_string()), ""))
-        );
-    }
-
-    #[test]
-    fn test_array_literal() {
-        assert_eq!(
-            primary_expression().parse("[]"),
-            Ok((build_ast!(array []), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("[,,,,]"),
-            Ok((build_ast!(array []), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("[,,,,yield,,yield,,,]"),
-            Ok((build_ast!(array [ [yield], [yield] ]), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("[,,,...yield,,,]"),
-            Ok((build_ast!(array [ [...[yield]] ]), ""))
-        );
-    }
-
-    #[test]
-    fn test_object_literal() {
-        assert_eq!(
-            primary_expression().parse("{}"),
-            Ok((build_ast!(object []), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("{ id }"),
-            Ok((
-                build_ast!(object [
-                    [[id "id".to_string()]: [id "id".to_string()]]
-                ]),
-                ""
-            ))
-        );
-        assert_eq!(
-            primary_expression().parse("{ id, id2 }"),
-            Ok((
-                build_ast!(object [
-                    [[id "id".to_string()]: [id "id".to_string()]],
-                    [[id "id2".to_string()]: [id "id2".to_string()]]
-                ]),
-                ""
-            ))
-        );
-        assert_eq!(
-            primary_expression().parse("{ id, id2, }"),
-            Ok((
-                build_ast!(object [
-                    [[id "id".to_string()]: [id "id".to_string()]],
-                    [[id "id2".to_string()]: [id "id2".to_string()]]
-                ]),
-                ""
-            ))
-        );
-        assert!(primary_expression().parse("{ id id2 }").is_err());
-
-    }
-
-    #[test]
-    fn test_jsx() {
-        assert_eq!(
-            primary_expression().parse("<div/>"),
-            Ok((build_ast!(<div />), ""))
-        );
-        assert_eq!(
-            primary_expression().parse("<div>\n\n</div>"),
-            Ok((build_ast!(<div />), ""))
-        );
-        assert!(primary_expression().parse("<div>\n\n</v>").is_err());
-    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
