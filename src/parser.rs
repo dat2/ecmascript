@@ -811,7 +811,11 @@ where
     I: Stream<Item = char>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    choice((try(property_initializer()), try(shorthand_property())))
+    choice((
+        try(property_initializer()),
+        try(method_definition()),
+        try(shorthand_property()),
+    ))
 }
 
 #[allow(dead_code)]
@@ -981,6 +985,66 @@ where
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
+#[allow(dead_code)]
+fn function_body<I>() -> impl Parser<Input = I, Output = Vec<Statement>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        token('{').skip(skip_tokens()),
+        token('}'),
+        value(Vec::new()),
+    )
+}
+
+#[allow(dead_code)]
+fn method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    basic_method_definition()
+}
+
+#[allow(dead_code)]
+fn basic_method_definition<I>() -> impl Parser<Input = I, Output = Property>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    (
+        property_name(),
+        skip_tokens(),
+        formal_parameters(),
+        skip_tokens(),
+        function_body(),
+    ).map(|(key, _, params, _, body)| Property {
+        key,
+        value: Expression::Function {
+            id: None,
+            async: false,
+            generator: false,
+            body,
+            params,
+        },
+        kind: PropertyKind::Init,
+        is_spread: false,
+    })
+}
+
+#[allow(dead_code)]
+fn formal_parameters<I>() -> impl Parser<Input = I, Output = Vec<Pattern>>
+where
+    I: Stream<Item = char>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    between(
+        token('(').skip(skip_tokens()),
+        token(')'),
+        value(Vec::new()),
+    )
+}
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
 #[allow(dead_code)]

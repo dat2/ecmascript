@@ -1,4 +1,5 @@
 use ast::*;
+use combine::stream::state::State;
 use combine::{eof, Parser};
 use parser::*;
 
@@ -515,6 +516,19 @@ fn test_object_literal_initializer_computed() {
         Ok((
             build_ast!(object [
                 [[yield]: [true]]
+            ]),
+            ""
+        ))
+    );
+}
+
+#[test]
+fn test_object_literal_method_definition() {
+    assert_eq!(
+        primary_expression().parse("{ method() {  } }"),
+        Ok((
+            build_ast!(object [
+                [[id "method".to_string()]: [function [] []]]
             ]),
             ""
         ))

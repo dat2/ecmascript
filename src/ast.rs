@@ -91,7 +91,7 @@ pub enum Expression {
         /// A function expression can be anonymous, where it has no name.
         id: Option<Id>,
         /// The formal parameters to a function.
-        params: Vec<Id>,
+        params: Vec<Pattern>,
         /// The body is a list of statements. This can include pragmas.
         body: Vec<Statement>,
         /// This is true if the function was defined with the `async` keyword before the
@@ -292,6 +292,39 @@ pub enum PropertyKind {
     /// This means the value is a function that gets called when you try to
     /// set the property in the object.
     Set,
+}
+
+/// A pattern is any way you can destructure an object or array.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    /// This is a regular IdReference pattern.
+    Identifier(Id),
+    /// This allows you to destructure objects.
+    Object(Vec<ObjectPatternProperty>),
+    /// This allows you to destructure arrays.
+    Array(Vec<Pattern>),
+    /// This allows you to collect the "rest" of properties or elements
+    /// in an array into a single parameter.
+    /// This is only allowed within the Array or Object patterns.
+    Rest(Id),
+    /// This allows you to set a default value for a pattern.
+    /// eg. const { x = 1 }
+    Default {
+        /// The pattern that you are setting a default for.
+        /// It is a syntax error for the pattern to be a Rest pattern.
+        pattern: Box<Pattern>,
+        /// The value you set the default to.
+        default: Expression,
+    },
+}
+
+/// This is a restricted version of a Property that only allows patterns as the value.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectPatternProperty {
+    /// The key can still be an id reference, or computed.
+    pub key: Expression,
+    /// The value however is now another pattern.
+    pub value: Pattern,
 }
 
 /// A template literal element can either be the string between backticks and `${`
