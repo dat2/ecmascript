@@ -106,8 +106,6 @@ pub struct RegExpLiteral {
 
 // expressions
 
-// patterns
-
 /// TemplateElement is any text between interpolated expressions inside a template literal.
 /// eg. ``abc ${} \u{2028}``
 /// "abc " and " \u{2028}" would be the TemplateElements for this template literal.

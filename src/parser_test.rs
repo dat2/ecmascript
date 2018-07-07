@@ -17,7 +17,7 @@ macro_rules! assert_parse_success {
 
 macro_rules! assert_parse_failure {
     ($parser:ident, $input:expr) => {
-        assert!($parser().easy_parse(State::new($input)).is_err());
+        assert!(($parser(), eof()).easy_parse(State::new($input)).is_err());
     };
 }
 
@@ -304,11 +304,10 @@ fn test_string_literal_line_continuation_invalid() {
     }
 }
 
-/*
 #[test]
 fn test_regex_literal_empty() {
     // must be non empty
-    assert!(regex_literal().parse("//").is_err());
+    assert_parse_failure!(regex_literal, "//");
 }
 
 #[test]
@@ -316,230 +315,220 @@ fn test_regex_literal_start_invalid() {
     // not allowed first chars
     for c in "*\\/[".chars() {
         let slice: &str = &format!("/{}/", c);
-        assert!(regex_literal().parse(slice).is_err());
+        assert_parse_failure!(regex_literal, slice);
     }
 }
 
 #[test]
 fn test_regex_literal_start_backslash() {
     // backslash as first char
-    assert_eq!(
-        regex_literal().parse("/\\a/"),
-        Ok((build_ast!(regex_lit /{"\\a".to_string()}/), ""))
+    assert_parse_success!(
+        regex_literal,
+        "/\\a/",
+        RegExpLiteral {
+            pattern: "\\a".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 5)).into())
+        }
     );
 }
 
 #[test]
 fn test_regex_literal_start_character_class() {
     // character class as first char
-    assert_eq!(
-        regex_literal().parse("/[ab]/"),
-        Ok((build_ast!(regex_lit /{"[ab]".to_string()}/), ""))
+    assert_parse_success!(
+        regex_literal,
+        "/[ab]/",
+        RegExpLiteral {
+            pattern: "[ab]".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 7)).into())
+        }
     );
 }
-
-// not allowed second chars
-        /*
-        for c in "\\/[".chars() {
-            let slice: &str = &format!("/a{}/", c);
-            assert!(regex_literal().parse(slice).is_err());
-        }
-        */
 
 #[test]
 fn test_regex_literal_continue_backslash() {
     // backslash as second char
-    assert_eq!(
-        regex_literal().parse("/a\\a/"),
-        Ok((build_ast!(regex_lit /{"a\\a".to_string()}/), ""))
+    assert_parse_success!(
+        regex_literal,
+        "/a\\a/",
+        RegExpLiteral {
+            pattern: "a\\a".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 6)).into())
+        }
     );
 }
 
 #[test]
 fn test_regex_literal_continue_character_class() {
     // character class as second char
-    assert_eq!(
-        regex_literal().parse("/a[ab]/"),
-        Ok((build_ast!(regex_lit /{"a[ab]".to_string()}/), ""))
+    assert_parse_success!(
+        regex_literal,
+        "/a[ab]/",
+        RegExpLiteral {
+            pattern: "a[ab]".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 8)).into())
+        }
     );
 }
-
-// character class with unallowed chars
-        /*
-        for c in "\\/]".chars() {
-            let slice: &str = &format!("/a[{}]/", c);
-            assert!(regex_literal().parse(slice).is_err());
-        }
-        */
 
 #[test]
 fn test_regex_literal_character_class_backslash() {
     // character class with backslash
-    assert_eq!(
-        regex_literal().parse("/a[ab\\]]/"),
-        Ok((build_ast!(regex_lit /{"a[ab\\]]".to_string()}/), ""))
+    assert_parse_success!(
+        regex_literal,
+        "/a[ab\\]]/",
+        RegExpLiteral {
+            pattern: "a[ab\\]]".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 10)).into())
+        }
     );
 }
 
 #[test]
 fn test_regex_literal_flags() {
     // flags
-    assert_eq!(
-        regex_literal().parse("/a/f"),
-        Ok((
-            build_ast!(regex_lit / { "a".to_string() } / { "f".to_string() }),
-            ""
-        ))
+    assert_parse_success!(
+        regex_literal,
+        "/a/f",
+        RegExpLiteral {
+            pattern: "a".to_string(),
+            flags: "f".to_string(),
+            loc: Some(((1, 1), (1, 5)).into())
+        }
     );
-    assert_eq!(
-        regex_literal().parse("/a/fi"),
-        Ok((
-            build_ast!(regex_lit / { "a".to_string() } / { "fi".to_string() }),
-            ""
-        ))
+    assert_parse_success!(
+        regex_literal,
+        "/a/fi",
+        RegExpLiteral {
+            pattern: "a".to_string(),
+            flags: "fi".to_string(),
+            loc: Some(((1, 1), (1, 6)).into())
+        }
     );
-    assert!(regex_literal().skip(eof()).parse("/a/\\u1234").is_err());
+    assert_parse_failure!(regex_literal, "/a/\\u1234");
 }
 
 #[test]
 fn test_template_elements() {
     // empty
-    assert_eq!(
-        template().parse("``"),
-        Ok((build_ast!(templ_el {String::new()}), ""))
-    );
+    assert_parse_success!(template, "``", build_ast!(templ_el {String::new()}));
 
     // no_substitution_template
-    assert_eq!(
-        template().parse("`asd`"),
-        Ok((build_ast!(templ_el {"asd".to_string()}), ""))
-    );
+    assert_parse_success!(template, "`asd`", build_ast!(templ_el {"asd".to_string()}));
 
     // template_head
-    assert_eq!(
-        template().parse("`asd ${eval}`"),
-        Ok((build_ast!(templ_el {"asd ".to_string()}), "eval}`"))
+    assert_parse_success!(
+        template,
+        "`asd ${",
+        build_ast!(templ_el {"asd ".to_string()})
     );
 
     // template_middle
-    assert_eq!(
-        template_substition_tail().parse("} asd ${eval}`"),
-        Ok((build_ast!(templ_el {" asd ".to_string()}), "eval}`"))
+    assert_parse_success!(
+        template_substition_tail,
+        "} asd ${",
+        build_ast!(templ_el {" asd ".to_string()})
     );
 
     // template_tail
-    assert_eq!(
-        template_substition_tail().parse("} asd"),
-        Ok((build_ast!(templ_el {" asd".to_string()}), ""))
+    assert_parse_success!(
+        template_substition_tail,
+        "} asd",
+        build_ast!(templ_el {" asd".to_string()})
     );
 
     // $
-    assert_eq!(
-        template_character().parse("$123"),
-        Ok((('$', "$".to_string()), "123"))
-    );
+    assert_parse_success!(template_character, "$", ('$', "$".to_string()));
     // escape sequence
-    assert_eq!(
-        template_character().parse("\\n"),
-        Ok((('\n', "\\n".to_string()), ""))
+    assert_parse_success!(template_character, "\\n", ('\n', "\\n".to_string()));
+    assert_parse_success!(template_character, "\\x0A", ('\n', "\\x0A".to_string()));
+    assert_parse_success!(
+        template_character,
+        "\\u2764",
+        ('❤', "\\u2764".to_string())
     );
-    assert_eq!(
-        template_character().parse("\\x0A"),
-        Ok((('\n', "\\x0A".to_string()), ""))
-    );
-    assert_eq!(
-        template_character().parse("\\u2764"),
-        Ok((('❤', "\\u2764".to_string()), ""))
-    );
-    assert_eq!(
-        template_character().parse("\\u{2764}"),
-        Ok((('❤', "\\u{2764}".to_string()), ""))
+    assert_parse_success!(
+        template_character,
+        "\\u{2764}",
+        ('❤', "\\u{2764}".to_string())
     );
     // line continuation
     for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
         let slice: &str = &line_continuation_char.to_string();
-        assert_eq!(
-            template_character().parse(slice),
-            Ok((
-                (line_continuation_char, line_continuation_char.to_string()),
-                ""
-            ))
+        assert_parse_success!(
+            template_character,
+            slice,
+            (line_continuation_char, line_continuation_char.to_string())
         );
     }
 }
 
+/*
 #[test]
 fn test_this() {
-    assert_eq!(
-        primary_expression().parse("this"),
-        Ok((build_ast!(this), ""))
-    );
+    assert_parse_success!(primary_expression, "this", build_ast!(this));
 }
 
 #[test]
 fn test_identifier_reference() {
-    assert_eq!(
-        primary_expression().parse("abc123"),
-        Ok((build_ast!(id "abc123".to_string()), ""))
+    assert_parse_success!(
+        primary_expression,
+        "abc123",
+        Expression::Identifier(Identifier(
+            Some(((1, 1), (1, 7)).into()),
+            "abc123".to_string()
+        ))
     );
 }
 
 #[test]
 fn test_literal() {
-    assert_eq!(
-        primary_expression().parse("null"),
-        Ok((build_ast!(null), ""))
-    );
-    assert_eq!(
-        primary_expression().parse("true"),
-        Ok((build_ast!(true), ""))
-    );
-    assert_eq!(
-        primary_expression().parse("false"),
-        Ok((build_ast!(false), ""))
-    );
-    assert_eq!(
-        primary_expression().parse("123.e1"),
+    assert_parse_success!(primary_expression, "null", Ok((build_ast!(null), "")));
+    assert_parse_success!(primary_expression, "true", Ok((build_ast!(true), "")));
+    assert_parse_success!(primary_expression, "false", Ok((build_ast!(false), "")));
+    assert_parse_success!(
+        primary_expression,
+        "123.e1",
         Ok((build_ast!(num 1230f64), ""))
     );
-    assert_eq!(
-        primary_expression().parse("'abc'"),
+    assert_parse_success!(
+        primary_expression,
+        "'abc'",
         Ok((build_ast!(str "abc".to_string()), ""))
     );
 }
 
 #[test]
 fn test_array_literal() {
-    assert_eq!(
-        primary_expression().parse("[]"),
-        Ok((build_ast!(array []), ""))
-    );
-    assert_eq!(
-        primary_expression().parse("[,,,,]"),
-        Ok((build_ast!(array []), ""))
-    );
-    assert_eq!(
-        primary_expression().parse("[,,,,yield,,yield,,,]"),
+    assert_parse_success!(primary_expression, "[]", Ok((build_ast!(array []), "")));
+    assert_parse_success!(primary_expression, "[,,,,]", Ok((build_ast!(array []), "")));
+    assert_parse_success!(
+        primary_expression,
+        "[,,,,yield,,yield,,,]",
         Ok((build_ast!(array [ [yield], [yield] ]), ""))
     );
-    assert_eq!(
-        primary_expression().parse("[,,,...yield,,,]"),
+    assert_parse_success!(
+        primary_expression,
+        "[,,,...yield,,,]",
         Ok((build_ast!(array [ [...[yield]] ]), ""))
     );
 }
 
 #[test]
 fn test_object_literal_empty() {
-    assert_eq!(
-        primary_expression().parse("{}"),
-        Ok((build_ast!(object []), ""))
-    );
+    assert_parse_success!(primary_expression, "{}", Ok((build_ast!(object []), "")));
 }
 
 #[test]
 fn test_object_literal_shorthand() {
-    assert_eq!(
-        primary_expression().parse("{ id }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ id }",
         Ok((
             build_ast!(object [
                 [[id "id".to_string()]: [id "id".to_string()]]
@@ -551,8 +540,9 @@ fn test_object_literal_shorthand() {
 
 #[test]
 fn test_object_literal_multiple_properties() {
-    assert_eq!(
-        primary_expression().parse("{ id, id2 }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ id, id2 }",
         Ok((
             build_ast!(object [
                 [[id "id".to_string()]: [id "id".to_string()]],
@@ -565,8 +555,9 @@ fn test_object_literal_multiple_properties() {
 
 #[test]
 fn test_object_literal_multiple_properties_ending_semicolon() {
-    assert_eq!(
-        primary_expression().parse("{ id, id2, }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ id, id2, }",
         Ok((
             build_ast!(object [
                 [[id "id".to_string()]: [id "id".to_string()]],
@@ -579,8 +570,9 @@ fn test_object_literal_multiple_properties_ending_semicolon() {
 
 #[test]
 fn test_object_literal_initializer() {
-    assert_eq!(
-        primary_expression().parse("{ id: true }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ id: true }",
         Ok((
             build_ast!(object [
                 [[id "id".to_string()]: [true]]
@@ -592,8 +584,9 @@ fn test_object_literal_initializer() {
 
 #[test]
 fn test_object_literal_initializer_string_literal() {
-    assert_eq!(
-        primary_expression().parse("{ 'id': true }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ 'id': true }",
         Ok((
             build_ast!(object [
                 [[str "id".to_string()]: [true]]
@@ -605,8 +598,9 @@ fn test_object_literal_initializer_string_literal() {
 
 #[test]
 fn test_object_literal_initializer_numeric_literal() {
-    assert_eq!(
-        primary_expression().parse("{ 0: true }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ 0: true }",
         Ok((
             build_ast!(object [
                 [[num 0f64]: [true]]
@@ -618,8 +612,9 @@ fn test_object_literal_initializer_numeric_literal() {
 
 #[test]
 fn test_object_literal_initializer_computed() {
-    assert_eq!(
-        primary_expression().parse("{ [yield]: true }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ [yield]: true }",
         Ok((
             build_ast!(object [
                 [[yield]: [true]]
@@ -631,8 +626,9 @@ fn test_object_literal_initializer_computed() {
 
 #[test]
 fn test_object_literal_method_definition() {
-    assert_eq!(
-        primary_expression().parse("{ method() {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ method() {  } }",
         Ok((
             build_ast!(object [
                 [[id "method".to_string()]: [function [] []]]
@@ -644,8 +640,9 @@ fn test_object_literal_method_definition() {
 
 #[test]
 fn test_object_literal_method_definition_generator() {
-    assert_eq!(
-        primary_expression().parse("{ * method() {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ * method() {  } }",
         Ok((
             build_ast!(object [
                 [[id "method".to_string()]: [function * [] []]]
@@ -657,8 +654,9 @@ fn test_object_literal_method_definition_generator() {
 
 #[test]
 fn test_object_literal_method_definition_async() {
-    assert_eq!(
-        primary_expression().parse("{ async method() {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ async method() {  } }",
         Ok((
             build_ast!(object [
                 [[id "method".to_string()]: [async function [] []]]
@@ -670,8 +668,9 @@ fn test_object_literal_method_definition_async() {
 
 #[test]
 fn test_object_literal_method_definition_async_generator() {
-    assert_eq!(
-        primary_expression().parse("{ async * method() {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ async * method() {  } }",
         Ok((
             build_ast!(object [
                 [[id "method".to_string()]: [async function * [] []]]
@@ -683,8 +682,9 @@ fn test_object_literal_method_definition_async_generator() {
 
 #[test]
 fn test_object_literal_method_definition_getter() {
-    assert_eq!(
-        primary_expression().parse("{ get key() {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ get key() {  } }",
         Ok((
             build_ast!(object [
                 [get [id "key".to_string()] [function [] []]]
@@ -696,8 +696,9 @@ fn test_object_literal_method_definition_getter() {
 
 #[test]
 fn test_object_literal_method_definition_setter() {
-    assert_eq!(
-        primary_expression().parse("{ set key(value) {  } }"),
+    assert_parse_success!(
+        primary_expression,
+        "{ set key(value) {  } }",
         Ok((
             build_ast!(object [
                 [set [id "key".to_string()] [function [[p_id "value".to_string()]] []]]
@@ -709,18 +710,16 @@ fn test_object_literal_method_definition_setter() {
 
 #[test]
 fn test_jsx_self_closing() {
-    assert_eq!(
-        primary_expression().parse("<div/>"),
-        Ok((build_ast!(<div />), ""))
-    );
+    assert_parse_success!(primary_expression, "<div/>", Ok((build_ast!(<div />), "")));
 }
 
 #[test]
 fn test_jsx_opening_closing_match() {
-    assert_eq!(
-        primary_expression().parse("<div>\n\n</div>"),
+    assert_parse_success!(
+        primary_expression,
+        "<div>\n\n</div>",
         Ok((build_ast!(<div />), ""))
     );
-    assert!(primary_expression().parse("<div>\n\n</v>").is_err());
+    assert_parse_failure!(primary_expression, "<div>\n\n</v>");
 }
 */

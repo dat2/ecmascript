@@ -60,7 +60,7 @@ macro_rules! build_ast {
         Expression::This
     };
     (id $id:expr) => {
-        Expression::IdReference($id)
+        Expression::Identifier($id)
     };
     (null) => {
         Expression::Literal(Literal::NullLiteral(NullLiteral(None)))
