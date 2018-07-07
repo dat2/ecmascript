@@ -414,34 +414,73 @@ fn test_regex_literal_flags() {
 }
 
 #[test]
-fn test_template_elements() {
-    // empty
-    assert_parse_success!(template, "``", build_ast!(templ_el {String::new()}));
+fn test_template_element_empty() {
+    assert_parse_success!(
+        template,
+        "``",
+        TemplateElement {
+            raw: String::new(),
+            cooked: String::new(),
+            loc: Some(((1, 1), (1, 3)).into())
+        }
+    );
+}
 
-    // no_substitution_template
-    assert_parse_success!(template, "`asd`", build_ast!(templ_el {"asd".to_string()}));
+#[test]
+fn test_template_element_no_substitution_template() {
+    assert_parse_success!(
+        template,
+        "`asd`",
+        TemplateElement {
+            raw: "asd".to_string(),
+            cooked: "asd".to_string(),
+            loc: Some(((1, 1), (1, 6)).into())
+        }
+    );
+}
 
-    // template_head
+#[test]
+fn test_template_element_template_head() {
     assert_parse_success!(
         template,
         "`asd ${",
-        build_ast!(templ_el {"asd ".to_string()})
+        TemplateElement {
+            raw: "asd ".to_string(),
+            cooked: "asd ".to_string(),
+            loc: Some(((1, 1), (1, 8)).into())
+        }
     );
+}
 
-    // template_middle
+#[test]
+fn test_template_element_template_middle() {
     assert_parse_success!(
         template_substition_tail,
         "} asd ${",
-        build_ast!(templ_el {" asd ".to_string()})
+        TemplateElement {
+            raw: " asd ".to_string(),
+            cooked: " asd ".to_string(),
+            loc: Some(((1, 1), (1, 9)).into())
+        }
     );
+}
 
+#[test]
+fn test_template_element_template_tail() {
     // template_tail
     assert_parse_success!(
         template_substition_tail,
         "} asd",
-        build_ast!(templ_el {" asd".to_string()})
+        TemplateElement {
+            raw: " asd".to_string(),
+            cooked: " asd".to_string(),
+            loc: Some(((1, 1), (1, 6)).into())
+        }
     );
+}
 
+#[test]
+fn test_template_element_template_character() {
     // $
     assert_parse_success!(template_character, "$", ('$', "$".to_string()));
     // escape sequence

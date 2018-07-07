@@ -536,28 +536,44 @@ pub(crate) fn template<'a>(
 #[allow(dead_code)]
 fn no_substition_template<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    between(
-        token('`'),
-        token('`'),
-        many::<Vec<_>, _>(template_character()),
-    ).map(|pairs| {
+    (
+        position(),
+        between(
+            token('`'),
+            token('`'),
+            many::<Vec<_>, _>(template_character()),
+        ),
+        position(),
+    ).map(|(start, pairs, end)| {
         let cooked = pairs.iter().cloned().map(|x| x.0).collect();
         let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement { cooked, raw }
+        TemplateElement {
+            cooked,
+            raw,
+            loc: Some((start, end).into()),
+        }
     })
 }
 
 #[allow(dead_code)]
 fn template_head<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    between(
-        token('`'),
-        string("${"),
-        many::<Vec<_>, _>(template_character()),
-    ).map(|pairs| {
+    (
+        position(),
+        between(
+            token('`'),
+            string("${"),
+            many::<Vec<_>, _>(template_character()),
+        ),
+        position(),
+    ).map(|(start, pairs, end)| {
         let cooked = pairs.iter().cloned().map(|x| x.0).collect();
         let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement { cooked, raw }
+        TemplateElement {
+            cooked,
+            raw,
+            loc: Some((start, end).into()),
+        }
     })
 }
 
@@ -581,27 +597,41 @@ pub(crate) fn template_substition_tail<'a>(
 #[allow(dead_code)]
 fn template_middle<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    between(
-        token('}'),
-        string("${"),
-        many::<Vec<_>, _>(template_character()),
-    ).map(|pairs| {
+    (
+        position(),
+        between(
+            token('}'),
+            string("${"),
+            many::<Vec<_>, _>(template_character()),
+        ),
+        position(),
+    ).map(|(start, pairs, end)| {
         let cooked = pairs.iter().cloned().map(|x| x.0).collect();
         let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement { cooked, raw }
+        TemplateElement {
+            cooked,
+            raw,
+            loc: Some((start, end).into()),
+        }
     })
 }
 
 #[allow(dead_code)]
 fn template_tail<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    token('}')
-        .with(many::<Vec<_>, _>(template_character()))
-        .map(|pairs| {
-            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-            let raw = pairs.iter().cloned().map(|x| x.1).collect();
-            TemplateElement { cooked, raw }
-        })
+    (
+        position(),
+        token('}').with(many::<Vec<_>, _>(template_character())),
+        position(),
+    ).map(|(start, pairs, end)| {
+        let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+        let raw = pairs.iter().cloned().map(|x| x.1).collect();
+        TemplateElement {
+            cooked,
+            raw,
+            loc: Some((start, end).into()),
+        }
+    })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions

@@ -53,6 +53,7 @@ macro_rules! build_ast {
         TemplateElement {
             cooked: $cooked,
             raw: $raw,
+            loc: None,
         }
     };
     // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions

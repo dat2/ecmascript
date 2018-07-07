@@ -119,6 +119,8 @@ pub struct TemplateElement {
     /// This will store the exact string value, before being evaluted into the unicode
     /// code points.
     pub raw: String,
+    /// This is the source location of the template element
+    pub loc: Option<SourceLocation>,
 }
 
 /// Expression is an enumeration of all possible expressions merged into one big enum.
