@@ -142,7 +142,7 @@ pub enum Expression {
     /// This is all literals minus the regex literal and the template literal.
     Literal(Literal),
     /// This is an expression created with [] brackets.
-    ArrayLiteral(Option<SourceLocation>, Vec<Expression>),
+    ArrayLiteral(Option<SourceLocation>, Vec<ExpressionListItem>),
     /// This is an expression created by using {} brackets.
     ObjectLiteral(Vec<Property>),
     /// A function expression is a function defined in an expression position.
@@ -308,6 +308,15 @@ pub enum Expression {
     /// This is an anonymous JsxElement, used when you want to return an array of
     /// elements without actually wrapping things into an unneeded DOM element.
     JsxFragment(Vec<Expression>),
+}
+
+/// A pattern is any way you can destructure an object or array.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExpressionListItem {
+    /// This is just a regular expression.
+    Expression(Expression),
+    /// This prevents a spread expression from being in an invalid syntax tree.
+    Spread(Option<SourceLocation>, Expression),
 }
 
 /// An object property is a tuple of a key, value, and a tag representing what kind of

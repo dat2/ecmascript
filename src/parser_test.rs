@@ -606,14 +606,14 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         Expression::ArrayLiteral(
             Some(((1, 1), (1, 22)).into()),
             vec![
-                Expression::Yield {
+                ExpressionListItem::Expression(Expression::Yield {
                     argument: None,
                     delegate: false,
-                },
-                Expression::Yield {
+                }),
+                ExpressionListItem::Expression(Expression::Yield {
                     argument: None,
                     delegate: false,
-                },
+                }),
             ]
         )
     );
@@ -622,10 +622,13 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         "[,,,...yield,,,]",
         Expression::ArrayLiteral(
             Some(((1, 1), (1, 17)).into()),
-            vec![Expression::Spread(Box::new(Expression::Yield {
-                argument: None,
-                delegate: false,
-            }))]
+            vec![ExpressionListItem::Spread(
+                Some(((1, 5), (1, 13)).into()),
+                Expression::Yield {
+                    argument: None,
+                    delegate: false,
+                },
+            )]
         )
     );
 }

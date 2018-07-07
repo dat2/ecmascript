@@ -698,8 +698,14 @@ fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePositi
 
 #[allow(dead_code)]
 fn element_list<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Expression>> {
-    many(choice((try(assignment_expression()), spread_element())).skip(elision()))
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<ExpressionListItem>>
+{
+    many(
+        choice((
+            try(assignment_expression()).map(ExpressionListItem::Expression),
+            spread_element(),
+        )).skip(elision()),
+    )
 }
 
 #[allow(dead_code)]
@@ -785,11 +791,15 @@ fn computed_property_name<'a>(
 
 #[allow(dead_code)]
 fn spread_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    string("...")
-        .with(assignment_expression())
-        .map(Box::new)
-        .map(Expression::Spread)
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ExpressionListItem>
+{
+    (
+        position(),
+        string("...").with(assignment_expression()),
+        position(),
+    ).map(|(start, expression, end)| {
+        ExpressionListItem::Spread(Some((start, end).into()), expression)
+    })
 }
 
 #[allow(dead_code)]
