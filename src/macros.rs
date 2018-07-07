@@ -8,10 +8,10 @@
 /// # use ecmascript::ast::*;
 /// let my_wrapper_func = build_ast! {
 ///   [array [
-///       [true],
-///       [false],
-///       [null],
-///       [...[array [ [num 1f64] ]]]
+///       [array_expr true],
+///       [array_expr false],
+///       [array_expr null],
+///       [...[array [ [array_expr num 1f64] ]]]
 ///    ]]
 /// };
 /// ```
@@ -81,8 +81,14 @@ macro_rules! build_ast {
     (array [$($elements:tt),*]) => {
         Expression::ArrayLiteral(None, vec![$(build_ast!($elements)),*])
     };
+    (array_expr $($expression:tt)+) => {
+        ExpressionListItem::Expression(build_ast!($($expression)+))
+    };
+    (...$($expression:tt)+) => {
+        ExpressionListItem::Spread(None, build_ast!($($expression)+))
+    };
     (object [$($properties:tt),*]) => {
-        Expression::ObjectLiteral(vec![$(build_ast!($properties)),*])
+        Expression::ObjectLiteral(None, vec![$(build_ast!($properties)),*])
     };
     ([$($key:tt)+]: [$($value:tt)+]) => {
         Property {
@@ -156,10 +162,7 @@ macro_rules! build_ast {
     (p_id $id:expr) => {
         Pattern::Identifier($id)
     };
-    (...[$($expression:tt)+]) => {
-        Expression::Spread(Box::new(build_ast!($($expression)+)))
-    };
-    // whole bunch of other stuff between
+   // whole bunch of other stuff between
     (call [$($id:tt)+] [$($args:tt)+]) => {
         Expression::Call {
             callee: Box::new(build_ast!($($id)+)),
