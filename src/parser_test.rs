@@ -194,12 +194,19 @@ fn test_number_literal_hex() {
     );
 }
 
-/*
 #[test]
 fn test_string_literal_empty() {
     // empty
-    assert_eq!(string_literal().parse(r#""""#), Ok((String::new(), "")));
-    assert_eq!(string_literal().parse("''"), Ok((String::new(), "")));
+    assert_parse_success!(
+        string_literal,
+        r#""""#,
+        StringLiteral(Some(((1, 1), (1, 3)).into()), String::new())
+    );
+    assert_parse_success!(
+        string_literal,
+        "''",
+        StringLiteral(Some(((1, 1), (1, 3)).into()), String::new())
+    );
 }
 
 #[test]
@@ -208,58 +215,82 @@ fn test_string_literal_invalid_chars() {
     for not_allowed_char in "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}".chars() {
         let double_quote_slice: &str = &format!("\"{}\"", not_allowed_char);
         let single_quote_slice: &str = &format!("'{}'", not_allowed_char);
-        assert!(string_literal().parse(double_quote_slice).is_err());
-        assert!(string_literal().parse(single_quote_slice).is_err());
+        assert_parse_failure!(string_literal, double_quote_slice);
+        assert_parse_failure!(string_literal, single_quote_slice);
     }
 }
 
 #[test]
 fn test_string_literal_character_escape_sequence() {
     // character escape sequences
-    for escaped_character in r#"'"\bfnrtv"#.chars() {
+    let escape_chars = r#"'"\bfnrtv"#.chars();
+    let escape_char_values = "\'\"\\\u{8}\u{c}\n\r\t\u{b}".chars();
+    for (escaped_character, value) in escape_chars.zip(escape_char_values) {
         let double_quote_slice: &str = &format!("\"\\{}\"", escaped_character);
         let single_quote_slice: &str = &format!("'\\{}'", escaped_character);
-        assert!(string_literal().parse(double_quote_slice).is_ok());
-        assert!(string_literal().parse(single_quote_slice).is_ok());
+        assert_parse_success!(
+            string_literal,
+            double_quote_slice,
+            StringLiteral(Some(((1, 1), (1, 5)).into()), value.to_string())
+        );
+        assert_parse_success!(
+            string_literal,
+            single_quote_slice,
+            StringLiteral(Some(((1, 1), (1, 5)).into()), value.to_string())
+        );
     }
     // non character escape sequences
-    assert_eq!(string_literal().parse("\"\\a\""), Ok(("a".to_string(), "")));
-    assert_eq!(string_literal().parse("'\\a'"), Ok(("a".to_string(), "")));
+    assert_parse_success!(
+        string_literal,
+        "\"\\a\"",
+        StringLiteral(Some(((1, 1), (1, 5)).into()), "a".to_string())
+    );
+    assert_parse_success!(
+        string_literal,
+        "'\\a'",
+        StringLiteral(Some(((1, 1), (1, 5)).into()), "a".to_string())
+    );
 }
 
 #[test]
 fn test_string_literal_hex_escape_sequence() {
     // hex escape sequence
-    assert_eq!(
-        string_literal().parse(r#""\x0A""#),
-        Ok(("\n".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r#""\x0A""#,
+        StringLiteral(Some(((1, 1), (1, 7)).into()), "\n".to_string())
     );
-    assert_eq!(
-        string_literal().parse(r"'\x0a'"),
-        Ok(("\n".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r#"'\x0A'"#,
+        StringLiteral(Some(((1, 1), (1, 7)).into()), "\n".to_string())
     );
 }
 
 #[test]
 fn test_string_literal_unicode_escape_sequence() {
     // unicode escape sequence
-    assert_eq!(
-        string_literal().parse(r#""\u2764""#),
-        Ok(("❤".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r#""\u2764""#,
+        StringLiteral(Some(((1, 1), (1, 9)).into()), "❤".to_string())
     );
-    assert_eq!(
-        string_literal().parse(r"'\u2764'"),
-        Ok(("❤".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r"'\u2764'",
+        StringLiteral(Some(((1, 1), (1, 9)).into()), "❤".to_string())
     );
-    assert_eq!(
-        string_literal().parse(r#""\u{2764}""#),
-        Ok(("❤".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r#""\u{2764}""#,
+        StringLiteral(Some(((1, 1), (1, 11)).into()), "❤".to_string())
     );
-    assert_eq!(
-        string_literal().parse(r"'\u{2764}'"),
-        Ok(("❤".to_string(), ""))
+    assert_parse_success!(
+        string_literal,
+        r"'\u{2764}'",
+        StringLiteral(Some(((1, 1), (1, 11)).into()), "❤".to_string())
     );
-    assert!(string_literal().parse(r"'\u{110000}'").is_err());
+    assert_parse_failure!(string_literal, r"'\u{110000}'");
 }
 
 #[test]
@@ -268,11 +299,12 @@ fn test_string_literal_line_continuation_invalid() {
     for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
         let double_quote_slice: &str = &format!("\"\\{}\"", line_continuation_char);
         let single_quote_slice: &str = &format!("'\\{}'", line_continuation_char);
-        assert!(string_literal().parse(double_quote_slice).is_err());
-        assert!(string_literal().parse(single_quote_slice).is_err());
+        assert_parse_failure!(string_literal, double_quote_slice);
+        assert_parse_failure!(string_literal, single_quote_slice);
     }
 }
 
+/*
 #[test]
 fn test_regex_literal_empty() {
     // must be non empty
