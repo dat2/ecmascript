@@ -680,11 +680,15 @@ fn literal<'a>(
 #[allow(dead_code)]
 fn array_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    between(
-        token('[').skip(skip_tokens()),
-        token(']').skip(skip_tokens()),
-        elision().with(element_list()).skip(elision()),
-    ).map(Expression::ArrayLiteral)
+    (
+        position(),
+        between(
+            token('[').skip(skip_tokens()),
+            token(']').skip(skip_tokens()),
+            elision().with(element_list()).skip(elision()),
+        ),
+        position(),
+    ).map(|(start, elements, end)| Expression::ArrayLiteral(Some((start, end).into()), elements))
 }
 
 #[allow(dead_code)]

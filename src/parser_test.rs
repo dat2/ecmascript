@@ -569,7 +569,6 @@ fn test_primary_expression_literal() {
             "abc".to_string()
         )))
     );
-
     assert_parse_success!(
         primary_expression,
         "/\\a/",
@@ -581,23 +580,57 @@ fn test_primary_expression_literal() {
     );
 }
 
-/*
 #[test]
-fn test_array_literal() {
-    assert_parse_success!(primary_expression, "[]", Ok((build_ast!(array []), "")));
-    assert_parse_success!(primary_expression, "[,,,,]", Ok((build_ast!(array []), "")));
+fn test_primary_expression_array_literal_empty() {
+    assert_parse_success!(
+        primary_expression,
+        "[]",
+        Expression::ArrayLiteral(Some(((1, 1), (1, 3)).into()), Vec::new())
+    );
+}
+
+#[test]
+fn test_primary_expression_array_literal_elision() {
+    assert_parse_success!(
+        primary_expression,
+        "[,,,,]",
+        Expression::ArrayLiteral(Some(((1, 1), (1, 7)).into()), Vec::new())
+    );
+}
+
+#[test]
+fn test_primary_expression_array_literal_elision_and_elements() {
     assert_parse_success!(
         primary_expression,
         "[,,,,yield,,yield,,,]",
-        Ok((build_ast!(array [ [yield], [yield] ]), ""))
+        Expression::ArrayLiteral(
+            Some(((1, 1), (1, 22)).into()),
+            vec![
+                Expression::Yield {
+                    argument: None,
+                    delegate: false,
+                },
+                Expression::Yield {
+                    argument: None,
+                    delegate: false,
+                },
+            ]
+        )
     );
     assert_parse_success!(
         primary_expression,
         "[,,,...yield,,,]",
-        Ok((build_ast!(array [ [...[yield]] ]), ""))
+        Expression::ArrayLiteral(
+            Some(((1, 1), (1, 17)).into()),
+            vec![Expression::Spread(Box::new(Expression::Yield {
+                argument: None,
+                delegate: false,
+            }))]
+        )
     );
 }
 
+/*
 #[test]
 fn test_object_literal_empty() {
     assert_parse_success!(primary_expression, "{}", Ok((build_ast!(object []), "")));

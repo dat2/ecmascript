@@ -142,7 +142,7 @@ pub enum Expression {
     /// This is all literals minus the regex literal and the template literal.
     Literal(Literal),
     /// This is an expression created with [] brackets.
-    ArrayLiteral(Vec<Expression>),
+    ArrayLiteral(Option<SourceLocation>, Vec<Expression>),
     /// This is an expression created by using {} brackets.
     ObjectLiteral(Vec<Property>),
     /// A function expression is a function defined in an expression position.
