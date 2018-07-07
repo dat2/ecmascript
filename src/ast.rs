@@ -1,51 +1,112 @@
 //! This module contains type definitions for the Abstract Syntax elements
 //! that make up the ECMAScript language.
 //!
-//! The types have been designed to be easily understandable and readable. That means
-//! we do not explicitly disallow invalid syntax trees in favour of simplicity.
-//! For example, the TaggedTemplate is only allowed to have a TemplateLiteral
-//! expression as its quasi, but we do not enforce this in the type definition
-//! for the sake of brevity.
+//! These types have been translated from the [estree spec](https://github.com/estree/estree/blob/master/es5.md).
 //!
 //! The macros `build_ast` and `match_ast` are meant to be the public API of this
 //! module as they abstract away the types in such a way so that the user of the library
 //! feels as if they are working with source text almost directly.
 
-/// NullLiteral is the syntax element for `null`.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals)
+/// Position is a line and a column. The line is 1 indexed, and column is 0 indexed.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NullLiteral;
+pub struct Position {
+    /// The line number in the original source. This is 1 indexed.
+    pub line: usize,
+    /// The column number in the original source. This is 0 indexed.
+    pub column: usize,
+}
 
-/// BooleanLiteral is the syntax element for `true` and `false`.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
-pub type BooleanLiteral = bool;
+impl From<(usize, usize)> for Position {
+    fn from((line, column): (usize, usize)) -> Position {
+        Position { line, column }
+    }
+}
 
-/// NumericLiteral is the syntax element for numbers. The parser will convert the string
-/// values into an f64 for the sake of simplicity.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
-pub type NumericLiteral = f64;
+/// A SourceLocation is where the node starts, and ends.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SourceLocation {
+    /// The start of the syntax token / element.
+    pub start: Position,
+    /// The end of the syntax token / element.
+    pub end: Position,
+}
 
-/// StringLiteral is a syntax element with quotes (single or double).
-/// eg. `'my string literal'` or `"my other string literal"`
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals)
-pub type StringLiteral = String;
+impl<P: Into<Position>> From<(P, P)> for SourceLocation {
+    fn from((start, end): (P, P)) -> SourceLocation {
+        SourceLocation {
+            start: start.into(),
+            end: end.into(),
+        }
+    }
+}
 
 /// Id is an identifier in the ecmascript language.
 /// eg. `var foo = {};`
 /// `foo` is the identifier.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-identifier-names).
-pub type Id = String;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Identifier(pub Option<SourceLocation>, pub String);
 
-/// RegexLiteral is the syntax element of a regular expression.
+/// This represents the Literal production of the PrimaryExpression rule.
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#prod-Literal)
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    /// This is a wrapper around the null literal.
+    NullLiteral(NullLiteral),
+    /// This is a wrapper around the boolean literal.
+    BooleanLiteral(BooleanLiteral),
+    /// This is a wrapper around the number literal.
+    NumericLiteral(NumericLiteral),
+    /// This is a wrapper around the string literal.
+    StringLiteral(StringLiteral),
+    /// This is a wrapper around the regexp literal.
+    RegExpLiteral(RegExpLiteral),
+}
+
+/// NullLiteral is the syntax element for `null`.
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals)
+#[derive(Debug, Clone, PartialEq)]
+pub struct NullLiteral(pub Option<SourceLocation>);
+
+/// BooleanLiteral is the syntax element for `true` and `false`.
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
+#[derive(Debug, Clone, PartialEq)]
+pub struct BooleanLiteral(pub Option<SourceLocation>, pub bool);
+
+/// NumericLiteral is the syntax element for numbers. The parser will convert the string
+/// values into an f64 for the sake of simplicity.
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
+#[derive(Debug, Clone, PartialEq)]
+pub struct NumericLiteral(pub Option<SourceLocation>, pub f64);
+
+/// StringLiteral is a syntax element with quotes (single or double).
+/// eg. `'my string literal'` or `"my other string literal"`
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals)
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLiteral(pub Option<SourceLocation>, pub String);
+
+/// RegExpLiteral is the syntax element of a regular expression.
 /// eg. `/abc[123]/gi`
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals)
 #[derive(Debug, Clone, PartialEq)]
-pub struct RegexLiteral {
+pub struct RegExpLiteral {
     /// This is the text between the slashes.
     pub pattern: String,
     /// This is the text after the slashes. eg the `i` flag is the case insensitive flag.
     pub flags: String,
+    /// This is the source location of the regexp.
+    pub loc: Option<SourceLocation>,
 }
+
+// programs
+
+// functions
+
+// statements
+
+// expressions
+
+// patterns
 
 /// TemplateElement is any text between interpolated expressions inside a template literal.
 /// eg. ``abc ${} \u{2028}``
@@ -77,9 +138,9 @@ pub enum Expression {
     /// The 'this' keyword is a primary expression.
     This,
     /// An identifier can also be a primary expression.
-    IdReference(Id),
+    Identifier(Identifier),
     /// This is all literals minus the regex literal and the template literal.
-    Literal(ExpressionLiteral),
+    Literal(Literal),
     /// This is an expression created with [] brackets.
     ArrayLiteral(Vec<Expression>),
     /// This is an expression created by using {} brackets.
@@ -89,7 +150,7 @@ pub enum Expression {
     /// statement.
     Function {
         /// A function expression can be anonymous, where it has no name.
-        id: Option<Id>,
+        id: Option<Identifier>,
         /// The formal parameters to a function.
         params: Vec<Pattern>,
         /// The body is a list of statements. This can include pragmas.
@@ -101,9 +162,6 @@ pub enum Expression {
         generator: bool,
     },
     // Class,
-    /// A regex literal can be used in expression position.
-    /// eg (/asd/.test(123))
-    RegexLiteral(RegexLiteral),
     /// A Template literal expression has many template elements with expressions littered
     /// between.
     ///
@@ -252,20 +310,6 @@ pub enum Expression {
     JsxFragment(Vec<Expression>),
 }
 
-/// This represents the Literal production of the PrimaryExpression rule.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#prod-Literal)
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExpressionLiteral {
-    /// This is a wrapper around the null literal.
-    NullLiteral(NullLiteral),
-    /// This is a wrapper around the boolean literal.
-    BooleanLiteral(BooleanLiteral),
-    /// This is a wrapper around the number literal.
-    NumericLiteral(NumericLiteral),
-    /// This is a wrapper around the string literal.
-    StringLiteral(StringLiteral),
-}
-
 /// An object property is a tuple of a key, value, and a tag representing what kind of
 /// property it is.
 #[derive(Debug, Clone, PartialEq)]
@@ -298,7 +342,7 @@ pub enum PropertyKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern {
     /// This is a regular IdReference pattern.
-    Identifier(Id),
+    Identifier(Identifier),
     /// This allows you to destructure objects.
     Object(Vec<ObjectPatternProperty>),
     /// This allows you to destructure arrays.
@@ -306,7 +350,7 @@ pub enum Pattern {
     /// This allows you to collect the "rest" of properties or elements
     /// in an array into a single parameter.
     /// This is only allowed within the Array or Object patterns.
-    Rest(Id),
+    Rest(Identifier),
     /// This allows you to set a default value for a pattern.
     /// eg. const { x = 1 }
     Default {

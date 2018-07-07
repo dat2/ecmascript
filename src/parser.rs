@@ -4,30 +4,35 @@
 //! This parser uses the error type from failure to make error interop easier for users.
 
 use ast::*;
-use combine::error::ParseError;
+use combine::easy;
 use combine::parser::char::{char, crlf, digit, hex_digit, newline, spaces, string};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
-use combine::parser::item::{none_of, one_of, satisfy, token, value};
+use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
 use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
 use combine::parser::sequence::between;
-use combine::stream::state::State;
-use combine::{eof, Parser, Stream};
+use combine::stream::state::{SourcePosition, State};
+use combine::{eof, Parser};
 use failure::{self, Error};
 use std::collections::HashSet;
 use unicode_xid::UnicodeXID;
+
+impl From<SourcePosition> for Position {
+    fn from(source_position: SourcePosition) -> Self {
+        Position {
+            line: source_position.line as usize,
+            column: source_position.column as usize,
+        }
+    }
+}
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar
 
 #[allow(dead_code)]
 /// This parser will consume all following whitespace tokens, including line terminators.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
-fn ws<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn ws<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     spaces().map(|_| ())
 }
 
@@ -35,11 +40,8 @@ where
 /// This parser will consume a single line terminator sequence token. This parser is only needed for the
 /// line_comment parser as it will consume up to a single line terminator token.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
-fn line_terminator<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn line_terminator<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     newline()
         .or(char('\u{000D}'))
         .or(char('\u{2028}'))
@@ -50,32 +52,23 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
 #[allow(dead_code)]
-pub(crate) fn comment<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn comment<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     try(block_comment()).or(line_comment())
 }
 
 #[allow(dead_code)]
 /// This parses a multiline comment, starting with /* and ending with */.
 /// It will consume the input and return ().
-fn block_comment<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn block_comment<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     (string("/*"), skip_until(try(string("*/"))), string("*/")).map(|_| ())
 }
 
 #[allow(dead_code)]
 /// This parses
-fn line_comment<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn line_comment<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     (
         string("//"),
         skip_until(line_terminator()),
@@ -84,11 +77,8 @@ where
 }
 
 #[allow(dead_code)]
-fn skip_tokens<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn skip_tokens<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     ws().or(comment())
 }
 
@@ -99,20 +89,14 @@ fn satisfy_id_start(c: char) -> bool {
 }
 
 #[allow(dead_code)]
-fn id_start<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
+fn id_start<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char>
 {
     satisfy(satisfy_id_start)
 }
 
 #[allow(dead_code)]
-fn unicode_id_start<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn unicode_id_start<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     try(unicode_escape_sequence().map(|x| x.0).then(|c| {
         if satisfy_id_start(c) {
             value(c).left()
@@ -129,20 +113,14 @@ fn satisfy_id_continue(c: char) -> bool {
 }
 
 #[allow(dead_code)]
-fn id_continue<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn id_continue<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     satisfy(satisfy_id_continue)
 }
 
 #[allow(dead_code)]
-fn unicode_id_continue<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn unicode_id_continue<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     try(unicode_escape_sequence().map(|x| x.0).then(|c| {
         if satisfy_id_continue(c) {
             value(c).left()
@@ -154,11 +132,8 @@ where
 
 // TODO strict mode
 #[allow(dead_code)]
-pub(crate) fn identifier<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn identifier<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (unicode_id_start(), many(unicode_id_continue()))
         .map(|(s, c): (char, String)| s.to_string() + &c)
         .then(|id| {
@@ -239,48 +214,45 @@ lazy_static! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
 #[allow(dead_code)]
-pub(crate) fn null_literal<I>() -> impl Parser<Input = I, Output = NullLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    string("null").map(|_| NullLiteral)
+pub(crate) fn null_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NullLiteral> {
+    (position(), string("null"), position())
+        .map(|(start, _, end)| NullLiteral(Some((start, end).into())))
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
 #[allow(dead_code)]
-pub(crate) fn boolean_literal<I>() -> impl Parser<Input = I, Output = BooleanLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    choice((
-        try(string("true")).map(|_| true),
-        string("false").map(|_| false),
-    ))
+pub(crate) fn boolean_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = BooleanLiteral> {
+    (
+        position(),
+        choice((
+            try(string("true")).map(|_| true),
+            string("false").map(|_| false),
+        )),
+        position(),
+    ).map(|(start, value, end)| BooleanLiteral(Some((start, end).into()), value))
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 #[allow(dead_code)]
-pub(crate) fn numeric_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    choice((
-        try(binary_integer_literal()),
-        try(octal_integer_literal()),
-        try(hex_integer_literal()),
-        decimal_literal(),
-    ))
+pub(crate) fn numeric_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NumericLiteral> {
+    (
+        position(),
+        choice((
+            try(binary_integer_literal()),
+            try(octal_integer_literal()),
+            try(hex_integer_literal()),
+            decimal_literal(),
+        )),
+        position(),
+    ).map(|(start, value, end)| NumericLiteral(Some((start, end).into()), value))
 }
 
 #[allow(dead_code)]
-fn decimal_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn decimal_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
         optional(decimal_integer_literal()),
         optional(
@@ -300,11 +272,8 @@ where
 }
 
 #[allow(dead_code)]
-fn decimal_integer_literal<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn decimal_integer_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     choice((
         string("0").skip(not_followed_by(digit())).map(String::from),
         (one_of("123456789".chars()), many::<String, _>(digit()))
@@ -313,11 +282,8 @@ where
 }
 
 #[allow(dead_code)]
-fn exponent_part<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn exponent_part<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (
         token('e').or(token('E')),
         optional(token('-').or(token('+'))),
@@ -331,11 +297,8 @@ where
 }
 
 #[allow(dead_code)]
-fn binary_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn binary_integer_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
         token('0'),
         token('b').or(token('B')),
@@ -344,11 +307,8 @@ where
 }
 
 #[allow(dead_code)]
-fn octal_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn octal_integer_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
         token('0'),
         token('o').or(token('O')),
@@ -357,11 +317,8 @@ where
 }
 
 #[allow(dead_code)]
-fn hex_integer_literal<I>() -> impl Parser<Input = I, Output = NumericLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn hex_integer_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
         token('0'),
         token('x').or(token('X')),
@@ -371,20 +328,18 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
 #[allow(dead_code)]
-pub(crate) fn string_literal<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    try(double_quote_string()).or(single_quote_string())
+pub(crate) fn string_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = StringLiteral> {
+    (
+        position(),
+        try(double_quote_string()).or(single_quote_string()),
+        position(),
+    ).map(|(start, value, end)| StringLiteral(Some((start, end).into()), value))
 }
 
 #[allow(dead_code)]
-fn double_quote_string<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn double_quote_string<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     between(
         token('"'),
         token('"'),
@@ -393,11 +348,8 @@ where
 }
 
 #[allow(dead_code)]
-fn double_quote_string_character<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn double_quote_string_character<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
     escape_sequence().map(|x| x.0).or(none_of(
         "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars(),
@@ -405,11 +357,8 @@ where
 }
 
 #[allow(dead_code)]
-fn single_quote_string<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn single_quote_string<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     between(
         token('\''),
         token('\''),
@@ -418,11 +367,8 @@ where
 }
 
 #[allow(dead_code)]
-fn single_quote_string_character<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn single_quote_string_character<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
     escape_sequence()
         .map(|x| x.0)
@@ -433,11 +379,8 @@ where
 // this is for template elements, to be able to get access to the raw string
 // this makes things uglier, but oh well
 #[allow(dead_code)]
-fn escape_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn escape_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     choice((
         try(character_escape_sequence()),
         try(non_escape_character_sequence()),
@@ -448,11 +391,8 @@ where
 }
 
 #[allow(dead_code)]
-fn character_escape_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn character_escape_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     token('\\')
         .and(one_of(r#"'"\bfnrtv"#.chars()))
         .map(|(t, c)| {
@@ -470,11 +410,8 @@ where
 }
 
 #[allow(dead_code)]
-fn non_escape_character_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn non_escape_character_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     token('\\')
         .and(none_of(
             "'\"\\bfnrtv0123456789xu\r\n\u{2028}\u{2029}".chars(),
@@ -483,11 +420,8 @@ where
 }
 
 #[allow(dead_code)]
-fn hex_escape_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn hex_escape_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     (token('\\'), token('x'), count::<String, _>(2, hex_digit())).map(|(t, x, hex_digits)| {
         let code_point = u32::from_str_radix(&hex_digits, 16).unwrap();
         let cooked = ::std::char::from_u32(code_point).unwrap();
@@ -497,11 +431,8 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#prod-UnicodeEscapeSequence
 #[allow(dead_code)]
-fn unicode_escape_sequence<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn unicode_escape_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     (
         token('\\'),
         token('u'),
@@ -533,72 +464,57 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
 #[allow(dead_code)]
-pub(crate) fn regex_literal<I>() -> impl Parser<Input = I, Output = RegexLiteral>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn regex_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = RegExpLiteral> {
     (
+        position(),
         between(token('/'), token('/'), regex_body()),
         many::<String, _>(id_continue()),
-    ).map(|(pattern, flags)| RegexLiteral { pattern, flags })
+        position(),
+    ).map(|(start, pattern, flags, end)| RegExpLiteral {
+        pattern,
+        flags,
+        loc: Some((start, end).into()),
+    })
 }
 
 #[allow(dead_code)]
-fn regex_body<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_body<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (regex_first_char(), many::<String, _>(regex_char())).map(|(s, s2): (String, String)| s + &s2)
 }
 
 #[allow(dead_code)]
-fn regex_first_char<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_first_char<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     try(regex_backslash_sequence())
         .or(try(regex_class()))
         .or(none_of("*/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
 }
 
 #[allow(dead_code)]
-fn regex_char<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_char<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     try(regex_backslash_sequence())
         .or(try(regex_class()))
         .or(none_of("/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
 }
 
 #[allow(dead_code)]
-fn regex_non_terminator<I>() -> impl Parser<Input = I, Output = char>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_non_terminator<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     none_of("\n\r\u{2028}\u{2029}".chars())
 }
 
 #[allow(dead_code)]
-fn regex_backslash_sequence<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_backslash_sequence<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (token('\\'), regex_non_terminator()).map(|(c, s): (char, char)| c.to_string() + &s.to_string())
 }
 
 #[allow(dead_code)]
-fn regex_class<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn regex_class<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (
         token('['),
         many::<String, _>(
@@ -612,20 +528,14 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
 #[allow(dead_code)]
-pub(crate) fn template<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn template<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     choice((try(no_substition_template()), template_head()))
 }
 
 #[allow(dead_code)]
-fn no_substition_template<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn no_substition_template<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     between(
         token('`'),
         token('`'),
@@ -638,11 +548,8 @@ where
 }
 
 #[allow(dead_code)]
-fn template_head<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn template_head<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     between(
         token('`'),
         string("${"),
@@ -655,11 +562,8 @@ where
 }
 
 #[allow(dead_code)]
-pub(crate) fn template_character<I>() -> impl Parser<Input = I, Output = (char, String)>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn template_character<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     choice((
         try(token('$').skip(not_followed_by(token('{')))).map(|x: char| (x, x.to_string())),
         try(escape_sequence()),
@@ -669,20 +573,14 @@ where
 }
 
 #[allow(dead_code)]
-pub(crate) fn template_substition_tail<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn template_substition_tail<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     choice((try(template_middle()), template_tail()))
 }
 
 #[allow(dead_code)]
-fn template_middle<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn template_middle<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     between(
         token('}'),
         string("${"),
@@ -695,11 +593,8 @@ where
 }
 
 #[allow(dead_code)]
-fn template_tail<I>() -> impl Parser<Input = I, Output = TemplateElement>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn template_tail<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     token('}')
         .with(many::<Vec<_>, _>(template_character()))
         .map(|pairs| {
@@ -711,14 +606,11 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
 #[allow(dead_code)]
-pub(crate) fn primary_expression<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+pub(crate) fn primary_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((
         try(this()),
-        try(identifier_reference()),
+        try(identifier_expression()),
         try(literal()),
         try(array_literal()),
         try(object_literal()),
@@ -727,43 +619,33 @@ where
 }
 
 #[allow(dead_code)]
-fn this<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn this<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     string("this").map(|_| Expression::This)
 }
 
 #[allow(dead_code)]
-fn identifier_reference<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    identifier().map(Expression::IdReference)
+fn identifier_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    (position(), identifier(), position())
+        .map(|(start, id, end)| Identifier(Some((start, end).into()), id))
+        .map(Expression::Identifier)
 }
 
 #[allow(dead_code)]
-fn literal<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((
-        try(null_literal()).map(ExpressionLiteral::NullLiteral),
-        try(boolean_literal()).map(ExpressionLiteral::BooleanLiteral),
-        try(numeric_literal()).map(ExpressionLiteral::NumericLiteral),
-        try(string_literal()).map(ExpressionLiteral::StringLiteral),
+        try(null_literal()).map(Literal::NullLiteral),
+        try(boolean_literal()).map(Literal::BooleanLiteral),
+        try(numeric_literal()).map(Literal::NumericLiteral),
+        try(string_literal()).map(Literal::StringLiteral),
     )).map(Expression::Literal)
 }
 
 #[allow(dead_code)]
-fn array_literal<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn array_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     between(
         token('[').skip(skip_tokens()),
         token(']').skip(skip_tokens()),
@@ -772,29 +654,19 @@ where
 }
 
 #[allow(dead_code)]
-fn elision<I>() -> impl Parser<Input = I, Output = ()>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     many::<Vec<_>, _>(token(',')).with(skip_tokens())
 }
 
 #[allow(dead_code)]
-fn element_list<I>() -> impl Parser<Input = I, Output = Vec<Expression>>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn element_list<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Expression>> {
     many(choice((try(assignment_expression()), spread_element())).skip(elision()))
 }
 
 #[allow(dead_code)]
-fn object_literal<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn object_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     between(
         token('{').skip(skip_tokens()),
         token('}').skip(skip_tokens()),
@@ -806,11 +678,8 @@ where
 }
 
 #[allow(dead_code)]
-fn property_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn property_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     choice((
         try(property_initializer()),
         try(method_definition()),
@@ -819,12 +688,9 @@ where
 }
 
 #[allow(dead_code)]
-fn shorthand_property<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    identifier_reference().map(|id| Property {
+fn shorthand_property<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
+    identifier_expression().map(|id| Property {
         key: id.clone(),
         value: id,
         kind: PropertyKind::Init,
@@ -833,11 +699,8 @@ where
 }
 
 #[allow(dead_code)]
-fn property_initializer<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn property_initializer<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         property_name(),
         skip_tokens(),
@@ -853,37 +716,28 @@ where
 }
 
 #[allow(dead_code)]
-fn property_name<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn property_name<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((try(literal_property_name()), try(computed_property_name())))
 }
 
 #[allow(dead_code)]
-fn literal_property_name<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn literal_property_name<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((
-        identifier_reference(),
+        identifier_expression(),
         string_literal()
-            .map(ExpressionLiteral::StringLiteral)
+            .map(Literal::StringLiteral)
             .map(Expression::Literal),
         numeric_literal()
-            .map(ExpressionLiteral::NumericLiteral)
+            .map(Literal::NumericLiteral)
             .map(Expression::Literal),
     ))
 }
 
 #[allow(dead_code)]
-fn computed_property_name<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn computed_property_name<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     between(
         token('[').skip(skip_tokens()),
         token(']'),
@@ -892,11 +746,8 @@ where
 }
 
 #[allow(dead_code)]
-fn spread_element<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn spread_element<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     string("...")
         .with(assignment_expression())
         .map(Box::new)
@@ -904,20 +755,14 @@ where
 }
 
 #[allow(dead_code)]
-fn assignment_expression<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn assignment_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     yield_expression()
 }
 
 #[allow(dead_code)]
-fn yield_expression<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn yield_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
         string("yield"),
         skip_tokens(),
@@ -931,20 +776,14 @@ where
 
 // https://facebook.github.io/jsx/
 #[allow(dead_code)]
-fn jsx_element<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn jsx_element<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((try(jsx_self_closing_element()), jsx_matched_element()))
 }
 
 #[allow(dead_code)]
-fn jsx_self_closing_element<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn jsx_self_closing_element<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     between(token('<'), string("/>"), identifier()).map(|name| Expression::JsxElement {
         name,
         attributes: Vec::new(),
@@ -953,11 +792,8 @@ where
 }
 
 #[allow(dead_code)]
-fn jsx_matched_element<I>() -> impl Parser<Input = I, Output = Expression>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn jsx_matched_element<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
         between(token('<'), string(">"), identifier()),
         skip_tokens(),
@@ -987,11 +823,8 @@ where
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
 #[allow(dead_code)]
-fn formal_parameters<I>() -> impl Parser<Input = I, Output = Vec<Pattern>>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn formal_parameters<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Pattern>> {
     between(
         token('(').skip(skip_tokens()),
         token(')'),
@@ -1000,20 +833,18 @@ where
 }
 
 #[allow(dead_code)]
-fn formal_parameter<I>() -> impl Parser<Input = I, Output = Pattern>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
-    identifier().map(Pattern::Identifier)
+fn formal_parameter<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Pattern> {
+    (position(), identifier(), position())
+        .map(|(start, id, end)| Identifier(Some((start, end).into()), id))
+        .map(Pattern::Identifier)
 }
 
 #[allow(dead_code)]
-fn function_body<I>(_yield: bool, _await: bool) -> impl Parser<Input = I, Output = Vec<Statement>>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn function_body<'a>(
+    _yield: bool,
+    _await: bool,
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Statement>> {
     between(
         token('{').skip(skip_tokens()),
         token('}'),
@@ -1022,11 +853,8 @@ where
 }
 
 #[allow(dead_code)]
-fn method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     choice((
         try(getter_method_definition()),
         try(setter_method_definition()),
@@ -1038,14 +866,10 @@ where
 }
 
 #[allow(dead_code)]
-fn basic_method_definition<I>(
+fn basic_method_definition<'a>(
     _yield: bool,
     _await: bool,
-) -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         property_name(),
         skip_tokens(),
@@ -1071,11 +895,8 @@ where
 }
 
 #[allow(dead_code)]
-fn generator_method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn generator_method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         token('*'),
         skip_tokens(),
@@ -1084,11 +905,8 @@ where
 }
 
 #[allow(dead_code)]
-fn async_method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn async_method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         string("async"),
         skip_tokens(),
@@ -1097,11 +915,8 @@ where
 }
 
 #[allow(dead_code)]
-fn async_generator_method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn async_generator_method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         string("async"),
         skip_tokens(),
@@ -1112,11 +927,8 @@ where
 }
 
 #[allow(dead_code)]
-fn getter_method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn getter_method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         string("get"),
         skip_tokens(),
@@ -1142,11 +954,8 @@ where
 }
 
 #[allow(dead_code)]
-fn setter_method_definition<I>() -> impl Parser<Input = I, Output = Property>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn setter_method_definition<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
         string("set"),
         skip_tokens(),
@@ -1175,11 +984,8 @@ where
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
 #[allow(dead_code)]
-fn program<I>() -> impl Parser<Input = I, Output = Program>
-where
-    I: Stream<Item = char>,
-    I::Error: ParseError<I::Item, I::Range, I::Position>,
-{
+fn program<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Program> {
     eof().map(|_| Program {
         source_type: SourceType::Module,
         body: Vec::new(),

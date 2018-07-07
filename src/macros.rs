@@ -33,15 +33,17 @@ macro_rules! build_ast {
     };
     // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar-literals
     (regex_lit /{$pattern:expr}/{$flags:expr}) => {
-        RegexLiteral {
+        RegExpLiteral {
             pattern: $pattern,
             flags: $flags,
+            loc: None,
         }
     };
     (regex_lit /{$pattern:expr}/) => {
-        RegexLiteral {
+        RegExpLiteral {
             pattern: $pattern,
             flags: String::new(),
+            loc: None,
         }
     };
     (templ_el {$cooked:expr}) => {
@@ -61,19 +63,19 @@ macro_rules! build_ast {
         Expression::IdReference($id)
     };
     (null) => {
-        Expression::Literal(ExpressionLiteral::NullLiteral(NullLiteral))
+        Expression::Literal(Literal::NullLiteral(NullLiteral(None)))
     };
     (true) => {
-        Expression::Literal(ExpressionLiteral::BooleanLiteral(true))
+        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(None, true)))
     };
     (false) => {
-        Expression::Literal(ExpressionLiteral::BooleanLiteral(false))
+        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(None, false)))
     };
     (num $lit:expr) => {
-        Expression::Literal(ExpressionLiteral::NumericLiteral($lit))
+        Expression::Literal(Literal::NumericLiteral(NumericLiteral(None, $lit)))
     };
     (str $lit:expr) => {
-        Expression::Literal(ExpressionLiteral::StringLiteral($lit))
+        Expression::Literal(Literal::StringLiteral(StringLiteral(None, $lit)))
     };
     (array [$($elements:tt),*]) => {
         Expression::ArrayLiteral(vec![$(build_ast!($elements)),*])

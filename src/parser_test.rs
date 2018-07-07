@@ -1,124 +1,200 @@
 use ast::*;
+use combine::stream::state::State;
 use combine::{eof, Parser};
 use parser::*;
 
+macro_rules! assert_parse_success {
+    ($parser:ident, $input:expr, $result:expr) => {
+        assert_eq!(
+            ($parser(), eof())
+                .map(|x| x.0)
+                .easy_parse(State::new($input))
+                .map(|x| x.0),
+            Ok($result)
+        );
+    };
+}
+
+macro_rules! assert_parse_failure {
+    ($parser:ident, $input:expr) => {
+        assert!($parser().easy_parse(State::new($input)).is_err());
+    };
+}
+
 #[test]
 fn test_line_comment() {
-    assert_eq!(comment().parse("//\n"), Ok(((), "")));
-    assert_eq!(comment().parse("// hello\n"), Ok(((), "")));
+    assert_parse_success!(comment, "//\n", ());
+    assert_parse_success!(comment, "// hello\n", ());
 }
 
 #[test]
 fn test_block_comment() {
-    assert_eq!(comment().parse("/**/"), Ok(((), "")));
-    assert_eq!(comment().parse("/* * */"), Ok(((), "")));
-    assert_eq!(comment().parse("/** * **/"), Ok(((), "")));
-    assert_eq!(comment().parse("/* hello *\n\t */"), Ok(((), "")));
+    assert_parse_success!(comment, "/**/", ());
+    assert_parse_success!(comment, "/* * */", ());
+    assert_parse_success!(comment, "/** * **/", ());
+    assert_parse_success!(comment, "/* hello *\n\t */", ());
 }
 
 #[test]
 fn test_identifier_start_invalid_escape_sequence() {
     // making sure that the unicode_escape_sequence satisifies things
     // eg. ZWNJ and ZWJ are not allowed as starts
-    assert!(identifier().parse(r"\u000a").is_err());
-    assert!(identifier().parse(r"\u200d").is_err());
-    assert!(identifier().parse(r"\u200c").is_err());
+    assert_parse_failure!(identifier, r"\u000a");
+    assert_parse_failure!(identifier, r"\u200d");
+    assert_parse_failure!(identifier, r"\u200c");
 }
 
 #[test]
 fn test_identifier_start_valid() {
     // testing $, _, unicode_escape_sequence as start
-    assert_eq!(identifier().parse(r"\u24"), Ok(("$".to_string(), "")));
-    assert_eq!(identifier().parse(r"_"), Ok(("_".to_string(), "")));
+    assert_parse_success!(identifier, r"\u24", "$".to_string());
+    assert_parse_success!(identifier, r"_", "_".to_string());
 }
 
 #[test]
 fn test_identifier_continue_valid() {
     // testing $, _, ZWNJ, ZWJ, unicode_escape_sequence as continue
-    assert_eq!(identifier().parse(r"a_"), Ok(("a_".to_string(), "")));
-    assert_eq!(identifier().parse(r"a$"), Ok(("a$".to_string(), "")));
-    assert_eq!(
-        identifier().parse(r"_\u200d"),
-        Ok(("_\u{200d}".to_string(), ""))
-    );
-    assert_eq!(
-        identifier().parse(r"_\u200c"),
-        Ok(("_\u{200c}".to_string(), ""))
-    );
+    assert_parse_success!(identifier, r"a_", "a_".to_string());
+    assert_parse_success!(identifier, r"a$", "a$".to_string());
+    assert_parse_success!(identifier, r"_\u200d", "_\u{200d}".to_string());
+    assert_parse_success!(identifier, r"_\u200c", "_\u{200c}".to_string());
 }
 
 #[test]
 fn test_identifier_reserved_word() {
     for &keyword in KEYWORDS.iter() {
-        assert!(identifier().parse(keyword).is_err());
+        assert_parse_failure!(identifier, keyword);
     }
     for &keyword in FUTURE_RESERVED_WORDS.iter() {
-        assert!(identifier().parse(keyword).is_err());
+        assert_parse_failure!(identifier, keyword);
     }
     for &keyword in FUTURE_RESERVED_WORDS_STRICT.iter() {
-        assert!(identifier().parse(keyword).is_err());
+        assert_parse_failure!(identifier, keyword);
     }
 
     // null literal
-    assert!(identifier().parse("null").is_err());
+    assert_parse_failure!(identifier, "null");
     // boolean literal
-    assert!(identifier().parse("true").is_err());
-    assert!(identifier().parse("false").is_err());
+    assert_parse_failure!(identifier, "true");
+    assert_parse_failure!(identifier, "false");
 }
 
 #[test]
 fn test_null_literal() {
-    assert_eq!(null_literal().parse("null"), Ok((NullLiteral, "")));
+    assert_parse_success!(
+        null_literal,
+        "null",
+        NullLiteral(Some(((1, 1), (1, 5)).into()))
+    );
 }
 
 #[test]
 fn test_boolean_literal() {
-    assert_eq!(boolean_literal().parse("true"), Ok((true, "")));
-    assert_eq!(boolean_literal().parse("false"), Ok((false, "")));
+    assert_parse_success!(
+        boolean_literal,
+        "true",
+        BooleanLiteral(Some(((1, 1), (1, 5)).into()), true)
+    );
+    assert_parse_success!(
+        boolean_literal,
+        "false",
+        BooleanLiteral(Some(((1, 1), (1, 6)).into()), false)
+    );
 }
 
 #[test]
 fn test_number_literal_decimal() {
     // decimal
-    assert_eq!(numeric_literal().parse("0"), Ok((0f64, "")));
-    assert!(numeric_literal().parse("01").is_err());
-    assert!(numeric_literal().parse("01.").is_err());
-    assert_eq!(numeric_literal().parse("9"), Ok((9f64, "")));
-    assert_eq!(numeric_literal().parse("10"), Ok((10f64, "")));
-    assert_eq!(numeric_literal().parse("0.1"), Ok((0.1f64, "")));
-    assert_eq!(numeric_literal().parse(".1"), Ok((0.1f64, "")));
-    assert_eq!(numeric_literal().parse("1e1"), Ok((10f64, "")));
-    assert_eq!(numeric_literal().parse(".1e1"), Ok((1f64, "")));
-    assert_eq!(numeric_literal().parse("1.1e1"), Ok((11f64, "")));
+    assert_parse_success!(
+        numeric_literal,
+        "0",
+        NumericLiteral(Some(((1, 1), (1, 2)).into()), 0f64)
+    );
+    assert_parse_failure!(numeric_literal, "01");
+    assert_parse_failure!(numeric_literal, "01.");
+    assert_parse_success!(
+        numeric_literal,
+        "9",
+        NumericLiteral(Some(((1, 1), (1, 2)).into()), 9f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "10",
+        NumericLiteral(Some(((1, 1), (1, 3)).into()), 10f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "0.1",
+        NumericLiteral(Some(((1, 1), (1, 4)).into()), 0.1f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        ".1",
+        NumericLiteral(Some(((1, 1), (1, 3)).into()), 0.1f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "1e1",
+        NumericLiteral(Some(((1, 1), (1, 4)).into()), 10f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        ".1e1",
+        NumericLiteral(Some(((1, 1), (1, 5)).into()), 1f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "1.1e1",
+        NumericLiteral(Some(((1, 1), (1, 6)).into()), 11f64)
+    );
 }
 
 #[test]
 fn test_number_literal_binary() {
     // binary
-    assert_eq!(numeric_literal().parse("0b1010"), Ok((10f64, "")));
-    assert_eq!(numeric_literal().parse("0B1010"), Ok((10f64, "")));
+    assert_parse_success!(
+        numeric_literal,
+        "0b1010",
+        NumericLiteral(Some(((1, 1), (1, 7)).into()), 10f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "0B1010",
+        NumericLiteral(Some(((1, 1), (1, 7)).into()), 10f64)
+    );
 }
 
 #[test]
 fn test_number_literal_octal() {
     // octal
-    assert_eq!(numeric_literal().parse("0o123"), Ok((83f64, "")));
-    assert_eq!(numeric_literal().parse("0O123"), Ok((83f64, "")));
+    assert_parse_success!(
+        numeric_literal,
+        "0o123",
+        NumericLiteral(Some(((1, 1), (1, 6)).into()), 83f64)
+    );
+    assert_parse_success!(
+        numeric_literal,
+        "0O123",
+        NumericLiteral(Some(((1, 1), (1, 6)).into()), 83f64)
+    );
 }
 
 #[test]
 fn test_number_literal_hex() {
     // hex
-    assert_eq!(
-        numeric_literal().parse("0xDEADBEEF"),
-        Ok((3735928559f64, ""))
+    assert_parse_success!(
+        numeric_literal,
+        "0XDEADBEEF",
+        NumericLiteral(Some(((1, 1), (1, 11)).into()), 3735928559f64)
     );
-    assert_eq!(
-        numeric_literal().parse("0XDEADBEEF"),
-        Ok((3735928559f64, ""))
+    assert_parse_success!(
+        numeric_literal,
+        "0xDEADBEEF",
+        NumericLiteral(Some(((1, 1), (1, 11)).into()), 3735928559f64)
     );
 }
 
+/*
 #[test]
 fn test_string_literal_empty() {
     // empty
@@ -615,3 +691,4 @@ fn test_jsx_opening_closing_match() {
     );
     assert!(primary_expression().parse("<div>\n\n</v>").is_err());
 }
+*/
