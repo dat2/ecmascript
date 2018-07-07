@@ -507,14 +507,17 @@ fn test_template_element_template_character() {
     }
 }
 
-/*
 #[test]
-fn test_this() {
-    assert_parse_success!(primary_expression, "this", build_ast!(this));
+fn test_primary_expression_this() {
+    assert_parse_success!(
+        primary_expression,
+        "this",
+        Expression::This(Some(((1, 1), (1, 5)).into()))
+    );
 }
 
 #[test]
-fn test_identifier_reference() {
+fn test_primary_expression_identifier_reference() {
     assert_parse_success!(
         primary_expression,
         "abc123",
@@ -526,22 +529,59 @@ fn test_identifier_reference() {
 }
 
 #[test]
-fn test_literal() {
-    assert_parse_success!(primary_expression, "null", Ok((build_ast!(null), "")));
-    assert_parse_success!(primary_expression, "true", Ok((build_ast!(true), "")));
-    assert_parse_success!(primary_expression, "false", Ok((build_ast!(false), "")));
+fn test_primary_expression_literal() {
+    assert_parse_success!(
+        primary_expression,
+        "null",
+        Expression::Literal(Literal::NullLiteral(NullLiteral(Some(
+            ((1, 1), (1, 5)).into()
+        ))))
+    );
+    assert_parse_success!(
+        primary_expression,
+        "true",
+        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
+            Some(((1, 1), (1, 5)).into()),
+            true
+        )))
+    );
+    assert_parse_success!(
+        primary_expression,
+        "false",
+        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
+            Some(((1, 1), (1, 6)).into()),
+            false
+        )))
+    );
     assert_parse_success!(
         primary_expression,
         "123.e1",
-        Ok((build_ast!(num 1230f64), ""))
+        Expression::Literal(Literal::NumericLiteral(NumericLiteral(
+            Some(((1, 1), (1, 7)).into()),
+            1230f64
+        )))
     );
     assert_parse_success!(
         primary_expression,
         "'abc'",
-        Ok((build_ast!(str "abc".to_string()), ""))
+        Expression::Literal(Literal::StringLiteral(StringLiteral(
+            Some(((1, 1), (1, 6)).into()),
+            "abc".to_string()
+        )))
+    );
+
+    assert_parse_success!(
+        primary_expression,
+        "/\\a/",
+        Expression::Literal(Literal::RegExpLiteral(RegExpLiteral {
+            pattern: "\\a".to_string(),
+            flags: String::new(),
+            loc: Some(((1, 1), (1, 5)).into())
+        }))
     );
 }
 
+/*
 #[test]
 fn test_array_literal() {
     assert_parse_success!(primary_expression, "[]", Ok((build_ast!(array []), "")));

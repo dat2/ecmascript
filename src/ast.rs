@@ -136,7 +136,7 @@ pub struct TemplateElement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     /// The 'this' keyword is a primary expression.
-    This,
+    This(Option<SourceLocation>),
     /// An identifier can also be a primary expression.
     Identifier(Identifier),
     /// This is all literals minus the regex literal and the template literal.

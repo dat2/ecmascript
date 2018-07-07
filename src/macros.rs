@@ -58,7 +58,7 @@ macro_rules! build_ast {
     };
     // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
     (this) => {
-        Expression::This
+        Expression::This(None)
     };
     (id $id:expr) => {
         Expression::Identifier($id)

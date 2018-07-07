@@ -644,6 +644,9 @@ pub(crate) fn primary_expression<'a>(
         try(literal()),
         try(array_literal()),
         try(object_literal()),
+        try(regex_literal())
+            .map(Literal::RegExpLiteral)
+            .map(Expression::Literal),
         jsx_element(),
     ))
 }
@@ -651,7 +654,8 @@ pub(crate) fn primary_expression<'a>(
 #[allow(dead_code)]
 fn this<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    string("this").map(|_| Expression::This)
+    (position(), string("this"), position())
+        .map(|(start, _, end)| Expression::This(Some((start, end).into())))
 }
 
 #[allow(dead_code)]
