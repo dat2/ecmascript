@@ -711,14 +711,20 @@ fn element_list<'a>(
 #[allow(dead_code)]
 fn object_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    between(
-        token('{').skip(skip_tokens()),
-        token('}').skip(skip_tokens()),
-        sep_end_by(
-            property_definition().skip(skip_tokens()),
-            token(',').skip(skip_tokens()),
+    (
+        position(),
+        between(
+            token('{').skip(skip_tokens()),
+            token('}').skip(skip_tokens()),
+            sep_end_by(
+                property_definition().skip(skip_tokens()),
+                token(',').skip(skip_tokens()),
+            ),
         ),
-    ).map(Expression::ObjectLiteral)
+        position(),
+    ).map(|(start, properties, end)| {
+        Expression::ObjectLiteral(Some((start, end).into()), properties)
+    })
 }
 
 #[allow(dead_code)]
@@ -734,11 +740,14 @@ fn property_definition<'a>(
 #[allow(dead_code)]
 fn shorthand_property<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    identifier_expression().map(|id| Property {
+    (position(), identifier_expression(), position()).map(|(start, id, end)| Property {
         key: id.clone(),
         value: id,
         kind: PropertyKind::Init,
-        is_spread: false,
+        method: false,
+        shorthand: true,
+        computed: false,
+        loc: Some((start, end).into()),
     })
 }
 
@@ -746,16 +755,21 @@ fn shorthand_property<'a>(
 fn property_initializer<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
+        position(),
         property_name(),
         skip_tokens(),
         token(':'),
         skip_tokens(),
         literal(),
-    ).map(|(key, _, _, _, value)| Property {
+        position(),
+    ).map(|(start, key, _, _, _, value, end)| Property {
         key,
         value,
         kind: PropertyKind::Init,
-        is_spread: false,
+        method: false,
+        shorthand: false,
+        computed: false,
+        loc: Some((start, end).into()),
     })
 }
 
@@ -919,6 +933,7 @@ fn basic_method_definition<'a>(
     _await: bool,
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
+        position(),
         property_name(),
         skip_tokens(),
         formal_parameters(),
@@ -928,18 +943,24 @@ fn basic_method_definition<'a>(
         // the value here is just to pass the yield and await into the map below
         value(_yield),
         value(_await),
-    ).map(|(key, _, params, _, body, _yield, _await)| Property {
-        key,
-        value: Expression::Function {
-            id: None,
-            async: _await,
-            generator: _yield,
-            body,
-            params,
+        position(),
+    ).map(
+        |(start, key, _, params, _, body, _yield, _await, end)| Property {
+            key,
+            value: Expression::Function {
+                id: None,
+                async: _await,
+                generator: _yield,
+                body,
+                params,
+            },
+            kind: PropertyKind::Init,
+            method: true,
+            shorthand: false,
+            computed: false,
+            loc: Some((start, end).into()),
         },
-        kind: PropertyKind::Init,
-        is_spread: false,
-    })
+    )
 }
 
 #[allow(dead_code)]
@@ -978,16 +999,14 @@ fn async_generator_method_definition<'a>(
 fn getter_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
-        string("get"),
-        skip_tokens(),
-        property_name(),
-        skip_tokens(),
-        token('('),
-        skip_tokens(),
-        token(')'),
-        skip_tokens(),
+        position(),
+        string("get").skip(skip_tokens()),
+        property_name().skip(skip_tokens()),
+        token('(').skip(skip_tokens()),
+        token(')').skip(skip_tokens()),
         function_body(false, false),
-    ).map(|(_, _, key, _, _, _, _, _, body)| Property {
+        position(),
+    ).map(|(start, _, key, _, _, body, end)| Property {
         key,
         value: Expression::Function {
             id: None,
@@ -997,7 +1016,10 @@ fn getter_method_definition<'a>(
             params: Vec::new(),
         },
         kind: PropertyKind::Get,
-        is_spread: false,
+        method: false,
+        shorthand: false,
+        computed: false,
+        loc: Some((start, end).into()),
     })
 }
 
@@ -1005,18 +1027,17 @@ fn getter_method_definition<'a>(
 fn setter_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
-        string("set"),
-        skip_tokens(),
-        property_name(),
-        skip_tokens(),
-        token('('),
-        skip_tokens(),
-        formal_parameter(),
-        skip_tokens(),
-        token(')'),
-        skip_tokens(),
+        position(),
+        string("set").skip(skip_tokens()),
+        property_name().skip(skip_tokens()),
+        between(
+            token('(').skip(skip_tokens()),
+            token(')').skip(skip_tokens()),
+            formal_parameter().skip(skip_tokens()),
+        ),
         function_body(false, false),
-    ).map(|(_, _, key, _, _, _, param, _, _, _, body)| Property {
+        position(),
+    ).map(|(start, _, key, param, body, end)| Property {
         key,
         value: Expression::Function {
             id: None,
@@ -1026,7 +1047,10 @@ fn setter_method_definition<'a>(
             params: vec![param],
         },
         kind: PropertyKind::Set,
-        is_spread: false,
+        method: false,
+        shorthand: false,
+        computed: false,
+        loc: Some((start, end).into()),
     })
 }
 

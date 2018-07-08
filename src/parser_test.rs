@@ -633,70 +633,154 @@ fn test_primary_expression_array_literal_elision_and_elements() {
     );
 }
 
-/*
 #[test]
-fn test_object_literal_empty() {
-    assert_parse_success!(primary_expression, "{}", Ok((build_ast!(object []), "")));
+fn test_primary_expression_object_literal_empty() {
+    assert_parse_success!(
+        primary_expression,
+        "{}",
+        Expression::ObjectLiteral(Some(((1, 1), (1, 3)).into()), Vec::new())
+    );
 }
 
 #[test]
-fn test_object_literal_shorthand() {
+fn test_primary_expression_object_literal_shorthand() {
     assert_parse_success!(
         primary_expression,
         "{ id }",
-        Ok((
-            build_ast!(object [
-                [[id "id".to_string()]: [id "id".to_string()]]
-            ]),
-            ""
-        ))
+        Expression::ObjectLiteral(
+            Some(((1, 1), (1, 7)).into()),
+            vec![Property {
+                kind: PropertyKind::Init,
+                key: Expression::Identifier(Identifier(
+                    Some(((1, 3), (1, 5)).into()),
+                    "id".to_string(),
+                )),
+                value: Expression::Identifier(Identifier(
+                    Some(((1, 3), (1, 5)).into()),
+                    "id".to_string(),
+                )),
+                method: false,
+                shorthand: true,
+                computed: false,
+                loc: Some(((1, 3), (1, 5)).into()),
+            }]
+        )
     );
 }
 
 #[test]
-fn test_object_literal_multiple_properties() {
+fn test_primary_expression_object_literal_multiple_properties() {
     assert_parse_success!(
         primary_expression,
         "{ id, id2 }",
-        Ok((
-            build_ast!(object [
-                [[id "id".to_string()]: [id "id".to_string()]],
-                [[id "id2".to_string()]: [id "id2".to_string()]]
-            ]),
-            ""
-        ))
+        Expression::ObjectLiteral(
+            Some(((1, 1), (1, 12)).into()),
+            vec![
+                Property {
+                    kind: PropertyKind::Init,
+                    key: Expression::Identifier(Identifier(
+                        Some(((1, 3), (1, 5)).into()),
+                        "id".to_string(),
+                    )),
+                    value: Expression::Identifier(Identifier(
+                        Some(((1, 3), (1, 5)).into()),
+                        "id".to_string(),
+                    )),
+                    method: false,
+                    shorthand: true,
+                    computed: false,
+                    loc: Some(((1, 3), (1, 5)).into()),
+                },
+                Property {
+                    kind: PropertyKind::Init,
+                    key: Expression::Identifier(Identifier(
+                        Some(((1, 7), (1, 10)).into()),
+                        "id2".to_string(),
+                    )),
+                    value: Expression::Identifier(Identifier(
+                        Some(((1, 7), (1, 10)).into()),
+                        "id2".to_string(),
+                    )),
+                    method: false,
+                    shorthand: true,
+                    computed: false,
+                    loc: Some(((1, 7), (1, 10)).into()),
+                },
+            ]
+        )
     );
 }
 
 #[test]
-fn test_object_literal_multiple_properties_ending_semicolon() {
+fn test_primary_expression_object_literal_multiple_properties_ending_semicolon() {
     assert_parse_success!(
         primary_expression,
         "{ id, id2, }",
-        Ok((
-            build_ast!(object [
-                [[id "id".to_string()]: [id "id".to_string()]],
-                [[id "id2".to_string()]: [id "id2".to_string()]]
-            ]),
-            ""
-        ))
+        Expression::ObjectLiteral(
+            Some(((1, 1), (1, 13)).into()),
+            vec![
+                Property {
+                    kind: PropertyKind::Init,
+                    key: Expression::Identifier(Identifier(
+                        Some(((1, 3), (1, 5)).into()),
+                        "id".to_string(),
+                    )),
+                    value: Expression::Identifier(Identifier(
+                        Some(((1, 3), (1, 5)).into()),
+                        "id".to_string(),
+                    )),
+                    method: false,
+                    shorthand: true,
+                    computed: false,
+                    loc: Some(((1, 3), (1, 5)).into()),
+                },
+                Property {
+                    kind: PropertyKind::Init,
+                    key: Expression::Identifier(Identifier(
+                        Some(((1, 7), (1, 10)).into()),
+                        "id2".to_string(),
+                    )),
+                    value: Expression::Identifier(Identifier(
+                        Some(((1, 7), (1, 10)).into()),
+                        "id2".to_string(),
+                    )),
+                    method: false,
+                    shorthand: true,
+                    computed: false,
+                    loc: Some(((1, 7), (1, 10)).into()),
+                },
+            ]
+        )
     );
 }
 
 #[test]
-fn test_object_literal_initializer() {
+fn test_primary_expression_object_literal_initializer() {
     assert_parse_success!(
         primary_expression,
         "{ id: true }",
-        Ok((
-            build_ast!(object [
-                [[id "id".to_string()]: [true]]
-            ]),
-            ""
-        ))
+        Expression::ObjectLiteral(
+            Some(((1, 1), (1, 13)).into()),
+            vec![Property {
+                kind: PropertyKind::Init,
+                key: Expression::Identifier(Identifier(
+                    Some(((1, 3), (1, 5)).into()),
+                    "id".to_string(),
+                )),
+                value: Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
+                    Some(((1, 7), (1, 11)).into()),
+                    true,
+                ))),
+                method: false,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 3), (1, 11)).into()),
+            }]
+        )
     );
 }
 
+/*
 #[test]
 fn test_object_literal_initializer_string_literal() {
     assert_parse_success!(

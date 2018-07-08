@@ -144,7 +144,7 @@ pub enum Expression {
     /// This is an expression created with [] brackets.
     ArrayLiteral(Option<SourceLocation>, Vec<ExpressionListItem>),
     /// This is an expression created by using {} brackets.
-    ObjectLiteral(Vec<Property>),
+    ObjectLiteral(Option<SourceLocation>, Vec<Property>),
     /// A function expression is a function defined in an expression position.
     /// Arrow functions are one where the body is a single statement that is an expression
     /// statement.
@@ -329,8 +329,14 @@ pub struct Property {
     pub value: Expression,
     /// The kind tells us if this is a getter, setter, or basic initializer.
     pub kind: PropertyKind,
-    /// This means the property was spread from another property.
-    pub is_spread: bool,
+    /// This tells us if the property was defined as a shorthand function expression.
+    pub method: bool,
+    /// This tells us if the key and value were exactly the same as an Identifier.
+    pub shorthand: bool,
+    /// This tells us if the key is more than just a basic literal or Identifier.
+    pub computed: bool,
+    /// This tells us where the property is defined.
+    pub loc: Option<SourceLocation>,
 }
 
 /// An object property can be a getter, setter, or basic initializer.
