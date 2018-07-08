@@ -19,5 +19,7 @@ extern crate serde;
 mod macros;
 pub mod ast;
 pub mod parser;
+#[cfg(test)]
+mod parser_unit_test;
 
 pub use parser::parse;

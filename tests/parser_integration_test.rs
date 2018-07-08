@@ -1,4 +1,5 @@
-#![feature(test)]
+// activate test feature when "nightly" is set
+#![cfg_attr(feature = "nightly", feature(test))]
 extern crate combine;
 extern crate ecmascript;
 extern crate serde;
@@ -8,125 +9,111 @@ extern crate glob;
 extern crate serde_json;
 extern crate test;
 
-use glob::glob;
-use serde_json::Value;
-use std::env;
-use std::fs::File;
-use test::ShouldPanic::No;
-use test::{test_main, Options, TestDesc, TestDescAndFn, TestFn, TestName};
+#[cfg(all(feature = "nightly", test))]
+mod nightly_integration_tests {
+    use ecmascript;
+    use glob::glob;
+    use serde_json::{self, Value};
+    use std::env;
+    use std::fs::File;
+    use test::ShouldPanic::No;
+    use test::{test_main, Options, TestDesc, TestDescAndFn, TestFn, TestName};
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
-enum TestFixture {
-    Success {
-        name: String,
-        source: String,
-        result: Value,
-    },
-    Failure {
-        name: String,
-        source: String,
-        error: String,
-    },
-}
-
-impl TestFixture {
-    fn name(&self) -> String {
-        match self {
-            TestFixture::Success { name, .. } => name.clone(),
-            TestFixture::Failure { name, .. } => name.clone(),
-        }
-    }
-
-    fn source(&self) -> String {
-        match self {
-            TestFixture::Success { source, .. } => source.clone(),
-            TestFixture::Failure { source, .. } => source.clone(),
-        }
-    }
-}
-
-fn add_test(tests: &mut Vec<TestDescAndFn>, scope: &str, test_fixture: TestFixture) {
-    tests.push(TestDescAndFn {
-        desc: TestDesc {
-            name: TestName::DynTestName(format!("{}::{}", scope, test_fixture.name())),
-            ignore: false,
-            should_panic: No,
-            allow_fail: false,
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(untagged)]
+    enum TestFixture {
+        Success {
+            name: String,
+            source: String,
+            result: Value,
         },
-        testfn: TestFn::DynTestFn(Box::new(move || {
-            let result = ecmascript::parse(&test_fixture.source())
-                .map(|result| serde_json::to_value(result).unwrap());
-            match (result, test_fixture) {
-                (Ok(value), TestFixture::Success { result, .. }) => {
-                    println!(
-                        "left: {}, right: {}",
-                        serde_json::to_string(&value).unwrap(),
-                        serde_json::to_string(&result).unwrap()
-                    );
-                    assert_eq!(value, result)
-                }
-                (Ok(value), TestFixture::Failure { source, error, .. }) => {
-                    println!("Expecting {:?} to fail with message {:?}", source, error);
-                    println!("But it passed with {:?}", value);
-                    panic!()
-                }
-                (Err(e), TestFixture::Success { source, .. }) => {
-                    println!("Source: {:?}\n\nError: {}", source, e);
-                    panic!()
-                }
-                (Err(e), TestFixture::Failure { error, .. }) => assert_eq!(e.to_string(), error),
-            }
-        })),
-    });
-}
+        Failure {
+            name: String,
+            source: String,
+            error: String,
+        },
+    }
 
-fn main() {
-    let args: Vec<_> = env::args().collect();
-    let mut tests = Vec::new();
-    for entry in glob("tests/fixtures/*.json").unwrap() {
-        let path = entry.unwrap();
-        let scope = path.file_stem().unwrap().to_str().unwrap();
-        let file = File::open(&path).unwrap();
-        let fixtures: Vec<TestFixture> = serde_json::from_reader(file).unwrap();
-        for fixture in fixtures {
-            add_test(&mut tests, scope, fixture);
+    impl TestFixture {
+        fn name(&self) -> String {
+            match self {
+                TestFixture::Success { name, .. } => name.clone(),
+                TestFixture::Failure { name, .. } => name.clone(),
+            }
+        }
+
+        fn source(&self) -> String {
+            match self {
+                TestFixture::Success { source, .. } => source.clone(),
+                TestFixture::Failure { source, .. } => source.clone(),
+            }
         }
     }
-    test_main(&args, tests, Options::new());
+
+    fn add_test(tests: &mut Vec<TestDescAndFn>, scope: &str, test_fixture: TestFixture) {
+        tests.push(TestDescAndFn {
+            desc: TestDesc {
+                name: TestName::DynTestName(format!("{}::{}", scope, test_fixture.name())),
+                ignore: false,
+                should_panic: No,
+                allow_fail: false,
+            },
+            testfn: TestFn::DynTestFn(Box::new(move || {
+                let result = ecmascript::parse(&test_fixture.source())
+                    .map(|result| serde_json::to_value(result).unwrap());
+                match (result, test_fixture) {
+                    (Ok(value), TestFixture::Success { result, .. }) => {
+                        println!(
+                            "left: {}, right: {}",
+                            serde_json::to_string(&value).unwrap(),
+                            serde_json::to_string(&result).unwrap()
+                        );
+                        assert_eq!(value, result)
+                    }
+                    (Ok(value), TestFixture::Failure { source, error, .. }) => {
+                        println!("Expecting {:?} to fail with message {:?}", source, error);
+                        println!("But it passed with {:?}", value);
+                        panic!()
+                    }
+                    (Err(e), TestFixture::Success { source, .. }) => {
+                        println!("Source: {:?}\n\nError: {}", source, e);
+                        panic!()
+                    }
+                    (Err(e), TestFixture::Failure { error, .. }) => {
+                        assert_eq!(e.to_string(), error)
+                    }
+                }
+            })),
+        });
+    }
+
+    pub fn main() {
+        let args: Vec<_> = env::args().collect();
+        let mut tests = Vec::new();
+        for entry in glob("tests/fixtures/*.json").unwrap() {
+            let path = entry.unwrap();
+            let scope = path.file_stem().unwrap().to_str().unwrap();
+            let file = File::open(&path).unwrap();
+            let fixtures: Vec<TestFixture> = serde_json::from_reader(file).unwrap();
+            for fixture in fixtures {
+                add_test(&mut tests, scope, fixture);
+            }
+        }
+        test_main(&args, tests, Options::new());
+    }
+}
+
+#[cfg(all(feature = "nightly", test))]
+fn main() {
+    nightly_integration_tests::main()
+}
+
+#[cfg(not(all(feature = "nightly", test)))]
+fn main() {
+    println!("Sorry! Integration testing is not supported on the stable or beta channels yet.")
 }
 
 /*
-
-// need to be tested in context of identifier, eg. var <identifier>
-#[test]
-fn test_identifier_start_invalid_escape_sequence() {
-    // making sure that the unicode_escape_sequence satisifies things
-    // eg. ZWNJ and ZWJ are not allowed as starts
-    assert_parse_failure!(identifier, r"\u000a");
-    assert_parse_failure!(identifier, r"\u200d");
-    assert_parse_failure!(identifier, r"\u200c");
-}
-
-// need to be tested in context of identifier, eg. var <identifier>
-#[test]
-fn test_identifier_reserved_word() {
-    for &keyword in KEYWORDS.iter() {
-        assert_parse_failure!(identifier, keyword);
-    }
-    for &keyword in FUTURE_RESERVED_WORDS.iter() {
-        assert_parse_failure!(identifier, keyword);
-    }
-    for &keyword in FUTURE_RESERVED_WORDS_STRICT.iter() {
-        assert_parse_failure!(identifier, keyword);
-    }
-
-    // null literal
-    assert_parse_failure!(identifier, "null");
-    // boolean literal
-    assert_parse_failure!(identifier, "true");
-    assert_parse_failure!(identifier, "false");
-}
 
 #[test]
 fn test_boolean_literal() {
