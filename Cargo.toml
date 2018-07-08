@@ -1,29 +1,47 @@
 [package]
-name = "ecmascript"
-version = "0.1.0"
 authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
+categories = [
+    "parser-implementations",
+    "parsing",
+]
 description = "A rust implementation of an ECMAScript parser"
 documentation = "https://docs.rs/ecmascript"
 homepage = "https://github.com/dat2/ecmascript"
-repository = "https://github.com/dat2/ecmascript"
-readme = "README.md"
-keywords = ["ecmascript", "javascript", "parser"]
-categories = [
-    "parser-implementations",
-    "parsing"
+keywords = [
+    "ecmascript",
+    "javascript",
+    "parser",
 ]
 license = "MIT"
-
-[badges]
-travis-ci = { repository = "dat2/ecmascript", branch = "master" }
-codecov = { repository = "dat2/ecmascript", branch = "master", service = "github" }
-maintenance = { status = "actively-developed" }
-
-[lib]
 name = "ecmascript"
+readme = "README.md"
+repository = "https://github.com/dat2/ecmascript"
+version = "0.1.0"
+
+[[test]]
+harness = false
+name = "parser_test"
+[badges.codecov]
+branch = "master"
+repository = "dat2/ecmascript"
+service = "github"
+
+[badges.maintenance]
+status = "actively-developed"
+
+[badges.travis-ci]
+branch = "master"
+repository = "dat2/ecmascript"
 
 [dependencies]
 combine = "3.3.2"
 failure = "0.1.1"
+glob = "0.2.11"
 lazy_static = "1.0.1"
+serde = "1.0.70"
+serde_derive = "1.0.70"
+serde_json = "1.0.22"
 unicode-xid = "0.1.0"
+
+[lib]
+name = "ecmascript"

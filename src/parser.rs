@@ -52,8 +52,7 @@ fn line_terminator<'a>(
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
 #[allow(dead_code)]
-pub(crate) fn comment<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
+fn comment<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     try(block_comment()).or(line_comment())
 }
 
@@ -79,7 +78,7 @@ fn line_comment<'a>(
 #[allow(dead_code)]
 fn skip_tokens<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    ws().or(comment())
+    (ws(), optional(try(comment())), ws()).map(|_| ())
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-names-and-keywords
@@ -846,10 +845,15 @@ fn jsx_element<'a>(
 #[allow(dead_code)]
 fn jsx_self_closing_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    between(token('<'), string("/>"), identifier()).map(|name| Expression::JsxElement {
+    (
+        position(),
+        between(token('<'), string("/>"), identifier()),
+        position(),
+    ).map(|(start, name, end)| Expression::JsxElement {
         name,
         attributes: Vec::new(),
         children: Vec::new(),
+        loc: Some((start, end).into()),
     })
 }
 
@@ -857,15 +861,18 @@ fn jsx_self_closing_element<'a>(
 fn jsx_matched_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
+        position(),
         between(token('<'), string(">"), identifier()),
         skip_tokens(),
         between(string("</"), token('>'), identifier()),
-    ).then(|(opening_name, _, closing_name)| {
+        position(),
+    ).then(|(start, opening_name, _, closing_name, end)| {
         if opening_name == closing_name {
             value(Expression::JsxElement {
                 name: opening_name,
                 attributes: Vec::new(),
                 children: Vec::new(),
+                loc: Some((start, end).into()),
             }).left()
         } else {
             unexpected("closing element")
@@ -873,6 +880,7 @@ fn jsx_matched_element<'a>(
                     name: String::new(),
                     attributes: Vec::new(),
                     children: Vec::new(),
+                    loc: None,
                 })
                 .message("closing name is not the same as opening name")
                 .right()
@@ -881,6 +889,14 @@ fn jsx_matched_element<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
+#[allow(dead_code)]
+fn statement<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Statement> {
+    // TODO use assignment_expression instead
+    (position(), primary_expression(), position()).map(|(start, expression, end)| {
+        Statement::Expression(Some((start, end).into()), expression)
+    })
+}
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
@@ -1058,9 +1074,13 @@ fn setter_method_definition<'a>(
 #[allow(dead_code)]
 fn program<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Program> {
-    eof().map(|_| Program {
+    (
+        skip_tokens(),
+        many::<Vec<_>, _>(statement().skip(skip_tokens())),
+        eof(),
+    ).map(|(_, body, _)| Program {
         source_type: SourceType::Module,
-        body: Vec::new(),
+        body,
     })
 }
 

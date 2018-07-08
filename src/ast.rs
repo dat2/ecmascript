@@ -8,7 +8,7 @@
 //! feels as if they are working with source text almost directly.
 
 /// Position is a line and a column. The line is 1 indexed, and column is 0 indexed.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Position {
     /// The line number in the original source. This is 1 indexed.
     pub line: usize,
@@ -23,7 +23,7 @@ impl From<(usize, usize)> for Position {
 }
 
 /// A SourceLocation is where the node starts, and ends.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SourceLocation {
     /// The start of the syntax token / element.
     pub start: Position,
@@ -43,13 +43,13 @@ impl<P: Into<Position>> From<(P, P)> for SourceLocation {
 /// Id is an identifier in the ecmascript language.
 /// eg. `var foo = {};`
 /// `foo` is the identifier.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-identifier-names).
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-identifier-names).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Identifier(pub Option<SourceLocation>, pub String);
 
 /// This represents the Literal production of the PrimaryExpression rule.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#prod-Literal)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Literal {
     /// This is a wrapper around the null literal.
     NullLiteral(NullLiteral),
@@ -64,31 +64,31 @@ pub enum Literal {
 }
 
 /// NullLiteral is the syntax element for `null`.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-null-literals)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct NullLiteral(pub Option<SourceLocation>);
 
 /// BooleanLiteral is the syntax element for `true` and `false`.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-boolean-literals)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BooleanLiteral(pub Option<SourceLocation>, pub bool);
 
 /// NumericLiteral is the syntax element for numbers. The parser will convert the string
 /// values into an f64 for the sake of simplicity.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-numeric-literals)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct NumericLiteral(pub Option<SourceLocation>, pub f64);
 
 /// StringLiteral is a syntax element with quotes (single or double).
 /// eg. `'my string literal'` or `"my other string literal"`
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-literals-string-literals)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StringLiteral(pub Option<SourceLocation>, pub String);
 
 /// RegExpLiteral is the syntax element of a regular expression.
 /// eg. `/abc[123]/gi`
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-literals-regular-expression-literals)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RegExpLiteral {
     /// This is the text between the slashes.
     pub pattern: String,
@@ -109,8 +109,8 @@ pub struct RegExpLiteral {
 /// TemplateElement is any text between interpolated expressions inside a template literal.
 /// eg. ``abc ${} \u{2028}``
 /// "abc " and " \u{2028}" would be the TemplateElements for this template literal.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-template-literal-lexical-components)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TemplateElement {
     /// If the template element has any sort of escape sequences (eg. \u{2028})
     /// this will represent the evaluated result of that sequence.
@@ -128,12 +128,12 @@ pub struct TemplateElement {
 ///
 /// This represents all possible computations that can be done in the ecmascript language.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions)
-/// [Primary Expression](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-primary-expression)
-/// [Left Hand Side Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-left-hand-side-expressions)
-/// [Update Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-update-expressions)
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-ecmascript-language-expressions)
+/// [Primary Expression](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-primary-expression)
+/// [Left Hand Side Expressions](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-left-hand-side-expressions)
+/// [Update Expressions](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-update-expressions)
 /// [JSX Specification](https://facebook.github.io/jsx/)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Expression {
     /// The 'this' keyword is a primary expression.
     This(Option<SourceLocation>),
@@ -250,7 +250,7 @@ pub enum Expression {
         rhs: Box<Expression>,
     },
     /// The ternary operator. This is of the form (test ? alternate : consequent)
-    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-conditional-operator)
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-conditional-operator)
     Conditional {
         /// The expression before the ?. This must evaluate to a truthy or falsy value.
         test: Box<Expression>,
@@ -290,7 +290,7 @@ pub enum Expression {
     /// finally return the last operand.
     ///
     /// This is mainly useful for side effects, eg. (console.log(expr), expr).
-    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-comma-operator)
     Comma(Vec<Expression>),
     /// *NOTE*: This is an extension to the language proposed by facebook.
     /// The JsxElement is an inlined expression of the form:
@@ -303,15 +303,17 @@ pub enum Expression {
         attributes: Vec<JsxAttribute>,
         /// The child elements.
         children: Vec<Expression>,
+        /// The source location of the element.
+        loc: Option<SourceLocation>,
     },
     ///*NOTE*: This is an extension to the language proposed by facebook.
     /// This is an anonymous JsxElement, used when you want to return an array of
     /// elements without actually wrapping things into an unneeded DOM element.
-    JsxFragment(Vec<Expression>),
+    JsxFragment(Option<SourceLocation>, Vec<Expression>),
 }
 
 /// A pattern is any way you can destructure an object or array.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ExpressionListItem {
     /// This is just a regular expression.
     Expression(Expression),
@@ -321,7 +323,7 @@ pub enum ExpressionListItem {
 
 /// An object property is a tuple of a key, value, and a tag representing what kind of
 /// property it is.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Property {
     /// The key can be a computed expression, or an id reference.
     pub key: Expression,
@@ -340,7 +342,7 @@ pub struct Property {
 }
 
 /// An object property can be a getter, setter, or basic initializer.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PropertyKind {
     /// This just means the value is initialized to the expression. This is the default.
     Init,
@@ -354,7 +356,7 @@ pub enum PropertyKind {
 }
 
 /// A pattern is any way you can destructure an object or array.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Pattern {
     /// This is a regular IdReference pattern.
     Identifier(Identifier),
@@ -378,7 +380,7 @@ pub enum Pattern {
 }
 
 /// This is a restricted version of a Property that only allows patterns as the value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ObjectPatternProperty {
     /// The key can still be an id reference, or computed.
     pub key: Expression,
@@ -389,7 +391,7 @@ pub struct ObjectPatternProperty {
 /// A template literal element can either be the string between backticks and `${`
 /// or the expression between `${` and `}`.
 /// This is easier than trying to re-construct the order.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TemplateLiteralElement {
     /// A TemplateElement is the strings between the interpolated expressions.
     TemplateElement(TemplateElement),
@@ -401,7 +403,7 @@ pub enum TemplateLiteralElement {
 /// then return an updated version of the operand.
 ///
 /// If the operator is in postfix position, it returns the old value of the operand.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum UpdateOperator {
     /// This will add 1 to the mathematical value of the operand. eg (a++ or ++a)
     Increment,
@@ -410,8 +412,8 @@ pub enum UpdateOperator {
 }
 
 /// These operators take 1 operand, and are a prefix of the operand.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-unary-operators)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-unary-operators)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     /// Reverse the sign on the operand. This will do type coercion first.
     /// eg. (-1)
@@ -439,15 +441,15 @@ pub enum UnaryOperator {
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
 /// sake.
 ///
-/// - [Multiplicative Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-multiplicative-operators)
-/// - [Additive Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-additive-operators)
-/// - [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-bitwise-shift-operators)
-/// - [Relational Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-relational-operators)
-/// - [Equality Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-equality-operators)
-/// - [Bitwise Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-binary-bitwise-operators)
-/// - [Logical Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-binary-logical-operators)
-/// - [Exponentiation Operator](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-exp-operator)
-#[derive(Debug, Clone, PartialEq)]
+/// - [Multiplicative Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-multiplicative-operators)
+/// - [Additive Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-additive-operators)
+/// - [Bitwise Shift Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-bitwise-shift-operators)
+/// - [Relational Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-relational-operators)
+/// - [Equality Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-equality-operators)
+/// - [Bitwise Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-binary-bitwise-operators)
+/// - [Logical Operators](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-binary-logical-operators)
+/// - [Exponentiation Operator](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-exp-operator)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     /// The double equal operator that does type coercion. (a == b)
     EqEq,
@@ -509,8 +511,8 @@ pub enum BinaryOperator {
 
 /// Assignment operators are ones that signify a chnage to the left hand side of the expression.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-assignment-operators)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-assignment-operators)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum AssignmentOperator {
     /// The basic assignment statement. This changes the left hand side to become a
     /// copy of the right hand side. (eg. a = 1)
@@ -551,7 +553,7 @@ pub enum AssignmentOperator {
 /// spread of an object containing multiple attributes.
 ///
 /// [Reference](https://facebook.github.io/jsx/)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum JsxAttribute {
     /// Spread an objects key value pairs into the JSX object as well.
     JsxSpreadAttribute {
@@ -574,13 +576,16 @@ pub enum JsxAttribute {
 /// instruction to the interpreter to evaluate an expression.
 /// For the sake of simplicity, declarations will get merged into this struct as well.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations)
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {}
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-ecmascript-language-statements-and-declarations)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Statement {
+    /// An expression statement.
+    Expression(Option<SourceLocation>, Expression),
+}
 
 /// This is the main entry point to the syntax tree. A program is a list of statements,
 /// and statements include declarations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Program {
     /// This represents how the source is parsed. A module is parsed in strict mode, which
     /// disallows things in the parser level earlier on.
@@ -593,8 +598,8 @@ pub struct Program {
 /// An ECMAScript module can have import and export declarations in it, and has some
 /// other subtle behaviour differences.
 ///
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules)
-#[derive(Debug, Clone, PartialEq)]
+/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.htmlec-ecmascript-language-scripts-and-modules)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SourceType {
     /// The source text has no import or export declarations.
     Script,

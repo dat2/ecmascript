@@ -1,40 +1,104 @@
-use ast::*;
-use combine::stream::state::State;
-use combine::{eof, Parser};
-use parser::*;
+#![feature(test)]
+extern crate combine;
+extern crate ecmascript;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate glob;
+extern crate serde_json;
+extern crate test;
 
-macro_rules! assert_parse_success {
-    ($parser:ident, $input:expr, $result:expr) => {
-        assert_eq!(
-            ($parser(), eof())
-                .map(|x| x.0)
-                .easy_parse(State::new($input))
-                .map(|x| x.0),
-            Ok($result)
-        );
-    };
+use glob::glob;
+use serde_json::Value;
+use std::env;
+use std::fs::File;
+use test::ShouldPanic::No;
+use test::{test_main, Options, TestDesc, TestDescAndFn, TestFn, TestName};
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum TestFixture {
+    Success {
+        name: String,
+        source: String,
+        result: Value,
+    },
+    Failure {
+        name: String,
+        source: String,
+        error: String,
+    },
 }
 
-macro_rules! assert_parse_failure {
-    ($parser:ident, $input:expr) => {
-        assert!(($parser(), eof()).easy_parse(State::new($input)).is_err());
-    };
+impl TestFixture {
+    fn name(&self) -> String {
+        match self {
+            TestFixture::Success { name, .. } => name.clone(),
+            TestFixture::Failure { name, .. } => name.clone(),
+        }
+    }
+
+    fn source(&self) -> String {
+        match self {
+            TestFixture::Success { source, .. } => source.clone(),
+            TestFixture::Failure { source, .. } => source.clone(),
+        }
+    }
 }
 
-#[test]
-fn test_line_comment() {
-    assert_parse_success!(comment, "//\n", ());
-    assert_parse_success!(comment, "// hello\n", ());
+fn add_test(tests: &mut Vec<TestDescAndFn>, scope: &str, test_fixture: TestFixture) {
+    tests.push(TestDescAndFn {
+        desc: TestDesc {
+            name: TestName::DynTestName(format!("{}::{}", scope, test_fixture.name())),
+            ignore: false,
+            should_panic: No,
+            allow_fail: false,
+        },
+        testfn: TestFn::DynTestFn(Box::new(move || {
+            let result = ecmascript::parse(&test_fixture.source())
+                .map(|result| serde_json::to_value(result).unwrap());
+            match (result, test_fixture) {
+                (Ok(value), TestFixture::Success { result, .. }) => {
+                    println!(
+                        "left: {}, right: {}",
+                        serde_json::to_string(&value).unwrap(),
+                        serde_json::to_string(&result).unwrap()
+                    );
+                    assert_eq!(value, result)
+                }
+                (Ok(value), TestFixture::Failure { source, error, .. }) => {
+                    println!("Expecting {:?} to fail with message {:?}", source, error);
+                    println!("But it passed with {:?}", value);
+                    panic!()
+                }
+                (Err(e), TestFixture::Success { source, .. }) => {
+                    println!("Source: {:?}\n\nError: {}", source, e);
+                    panic!()
+                }
+                (Err(e), TestFixture::Failure { error, .. }) => assert_eq!(e.to_string(), error),
+            }
+        })),
+    });
 }
 
-#[test]
-fn test_block_comment() {
-    assert_parse_success!(comment, "/**/", ());
-    assert_parse_success!(comment, "/* * */", ());
-    assert_parse_success!(comment, "/** * **/", ());
-    assert_parse_success!(comment, "/* hello *\n\t */", ());
+fn main() {
+    let args: Vec<_> = env::args().collect();
+    let mut tests = Vec::new();
+    for entry in glob("tests/fixtures/*.json").unwrap() {
+        let path = entry.unwrap();
+        let scope = path.file_stem().unwrap().to_str().unwrap();
+        let file = File::open(&path).unwrap();
+        let fixtures: Vec<TestFixture> = serde_json::from_reader(file).unwrap();
+        for fixture in fixtures {
+            add_test(&mut tests, scope, fixture);
+        }
+    }
+    test_main(&args, tests, Options::new());
 }
 
+/*
+
+// need to be tested in context of identifier, eg. var <identifier>
 #[test]
 fn test_identifier_start_invalid_escape_sequence() {
     // making sure that the unicode_escape_sequence satisifies things
@@ -44,22 +108,7 @@ fn test_identifier_start_invalid_escape_sequence() {
     assert_parse_failure!(identifier, r"\u200c");
 }
 
-#[test]
-fn test_identifier_start_valid() {
-    // testing $, _, unicode_escape_sequence as start
-    assert_parse_success!(identifier, r"\u24", "$".to_string());
-    assert_parse_success!(identifier, r"_", "_".to_string());
-}
-
-#[test]
-fn test_identifier_continue_valid() {
-    // testing $, _, ZWNJ, ZWJ, unicode_escape_sequence as continue
-    assert_parse_success!(identifier, r"a_", "a_".to_string());
-    assert_parse_success!(identifier, r"a$", "a$".to_string());
-    assert_parse_success!(identifier, r"_\u200d", "_\u{200d}".to_string());
-    assert_parse_success!(identifier, r"_\u200c", "_\u{200c}".to_string());
-}
-
+// need to be tested in context of identifier, eg. var <identifier>
 #[test]
 fn test_identifier_reserved_word() {
     for &keyword in KEYWORDS.iter() {
@@ -77,15 +126,6 @@ fn test_identifier_reserved_word() {
     // boolean literal
     assert_parse_failure!(identifier, "true");
     assert_parse_failure!(identifier, "false");
-}
-
-#[test]
-fn test_null_literal() {
-    assert_parse_success!(
-        null_literal,
-        "null",
-        NullLiteral(Some(((1, 1), (1, 5)).into()))
-    );
 }
 
 #[test]
@@ -780,7 +820,6 @@ fn test_primary_expression_object_literal_initializer() {
     );
 }
 
-/*
 #[test]
 fn test_object_literal_initializer_string_literal() {
     assert_parse_success!(
@@ -908,16 +947,30 @@ fn test_object_literal_method_definition_setter() {
 }
 
 #[test]
-fn test_jsx_self_closing() {
-    assert_parse_success!(primary_expression, "<div/>", Ok((build_ast!(<div />), "")));
+fn test_primary_expression_jsx_self_closing() {
+    assert_parse_success!(
+        primary_expression,
+        "<div/>",
+        Expression::JsxElement {
+            attributes: Vec::new(),
+            children: Vec::new(),
+            name: "div".to_string(),
+            loc: Some(((1, 1), (1, 7)).into())
+        }
+    );
 }
 
 #[test]
-fn test_jsx_opening_closing_match() {
+fn test_primary_expression_jsx_opening_closing_match() {
     assert_parse_success!(
         primary_expression,
         "<div>\n\n</div>",
-        Ok((build_ast!(<div />), ""))
+        Expression::JsxElement {
+            attributes: Vec::new(),
+            children: Vec::new(),
+            name: "div".to_string(),
+            loc: Some(((1, 1), (3, 7)).into())
+        }
     );
     assert_parse_failure!(primary_expression, "<div>\n\n</v>");
 }

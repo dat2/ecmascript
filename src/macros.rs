@@ -180,7 +180,8 @@ macro_rules! build_ast {
         Expression::JsxElement {
             name: stringify!($id).to_string(),
             attributes: Vec::new(),
-            children: Vec::new()
+            children: Vec::new(),
+            loc: None
         }
     };
         /*

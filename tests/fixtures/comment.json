@@ -1,0 +1,34 @@
+[
+  {
+    "name": "line_comment_empty",
+    "source": "//\n",
+    "result": {
+      "source_type": "Module",
+      "body": []
+    }
+  },
+  {
+    "name": "line_comment",
+    "source": "// hello\n",
+    "result": {
+      "source_type": "Module",
+      "body": []
+    }
+  },
+  {
+    "name": "block_comment_empty",
+    "source": "/**/",
+    "result": {
+      "source_type": "Module",
+      "body": []
+    }
+  },
+  {
+    "name": "block_comment_whitespace",
+    "source": "/*\n\t\f\r\n\n\n*/",
+    "result": {
+      "source_type": "Module",
+      "body": []
+    }
+  }
+]
