@@ -1075,12 +1075,15 @@ fn setter_method_definition<'a>(
 fn program<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Program> {
     (
+        position(),
         skip_tokens(),
         many::<Vec<_>, _>(statement().skip(skip_tokens())),
         eof(),
-    ).map(|(_, body, _)| Program {
-        source_type: SourceType::Module,
+        position(),
+    ).map(|(start, _, body, _, end)| Program {
+        source_type: SourceType::Script,
         body,
+        loc: Some((start, end).into()),
     })
 }
 

@@ -17,8 +17,17 @@ fn main() -> Result<(), Error> {
                 .required(true)
                 .index(1),
         )
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .help("Sets the verbosity"),
+        )
         .get_matches();
     let source = matches.value_of("INPUT").unwrap();
+    if matches.is_present("verbose") {
+        println!("source: {:?}", source);
+    }
     let ast = ecmascript::parse(&source)?;
     let json_string = serde_json::to_string_pretty(&ast)?;
     println!("{}", json_string);

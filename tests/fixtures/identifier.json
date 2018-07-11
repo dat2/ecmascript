@@ -3,7 +3,7 @@
     "name": "start_valid_dollar",
     "source": "\\u24",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -34,14 +34,24 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 5
+        }
+      }
     }
   },
   {
     "name": "start_valid_underscore",
     "source": "_",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -72,14 +82,24 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 2
+        }
+      }
     }
   },
   {
     "name": "continue_valid_dollar",
     "source": "a\\u24",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -110,14 +130,24 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 6
+        }
+      }
     }
   },
   {
     "name": "continue_valid_underscore",
     "source": "a_",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -148,14 +178,24 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 3
+        }
+      }
     }
   },
   {
     "name": "continue_valid_zwnj",
     "source": "a\\u200d",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -186,14 +226,24 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 8
+        }
+      }
     }
   },
   {
     "name": "continue_valid_zwj",
     "source": "a\\u200c",
     "result": {
-      "source_type": "Module",
+      "sourceType": "script",
       "body": [
         {
           "Expression": [
@@ -224,7 +274,17 @@
             }
           ]
         }
-      ]
+      ],
+      "loc": {
+        "start": {
+          "line": 1,
+          "column": 1
+        },
+        "end": {
+          "line": 1,
+          "column": 8
+        }
+      }
     }
   }
 ]

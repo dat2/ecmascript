@@ -586,12 +586,15 @@ pub enum Statement {
 /// This is the main entry point to the syntax tree. A program is a list of statements,
 /// and statements include declarations.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Program {
     /// This represents how the source is parsed. A module is parsed in strict mode, which
     /// disallows things in the parser level earlier on.
     pub source_type: SourceType,
     /// The list of statements or declarations made by the source text.
     pub body: Vec<Statement>,
+    /// The location of the entire program.
+    pub loc: Option<SourceLocation>,
 }
 
 /// This enum represents whether or not the source code contains an ECMAScript module.
@@ -600,6 +603,7 @@ pub struct Program {
 ///
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum SourceType {
     /// The source text has no import or export declarations.
     Script,
