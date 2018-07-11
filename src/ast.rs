@@ -50,6 +50,7 @@ pub struct Identifier(pub Option<SourceLocation>, pub String);
 /// This represents the Literal production of the PrimaryExpression rule.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#prod-Literal)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
 pub enum Literal {
     /// This is a wrapper around the null literal.
     NullLiteral(NullLiteral),
@@ -66,24 +67,24 @@ pub enum Literal {
 /// NullLiteral is the syntax element for `null`.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct NullLiteral(pub Option<SourceLocation>);
+pub struct NullLiteral;
 
 /// BooleanLiteral is the syntax element for `true` and `false`.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct BooleanLiteral(pub Option<SourceLocation>, pub bool);
+pub struct BooleanLiteral(pub bool);
 
 /// NumericLiteral is the syntax element for numbers. The parser will convert the string
 /// values into an f64 for the sake of simplicity.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-numeric-literals)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct NumericLiteral(pub Option<SourceLocation>, pub f64);
+pub struct NumericLiteral(pub f64);
 
 /// StringLiteral is a syntax element with quotes (single or double).
 /// eg. `'my string literal'` or `"my other string literal"`
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct StringLiteral(pub Option<SourceLocation>, pub String);
+pub struct StringLiteral(pub String);
 
 /// RegExpLiteral is the syntax element of a regular expression.
 /// eg. `/abc[123]/gi`
@@ -94,8 +95,6 @@ pub struct RegExpLiteral {
     pub pattern: String,
     /// This is the text after the slashes. eg the `i` flag is the case insensitive flag.
     pub flags: String,
-    /// This is the source location of the regexp.
-    pub loc: Option<SourceLocation>,
 }
 
 // programs
@@ -134,13 +133,19 @@ pub struct TemplateElement {
 /// [Update Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-update-expressions)
 /// [JSX Specification](https://facebook.github.io/jsx/)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+// #[serde(tag = "type")]
 pub enum Expression {
     /// The 'this' keyword is a primary expression.
     This(Option<SourceLocation>),
     /// An identifier can also be a primary expression.
     Identifier(Identifier),
     /// This is all literals minus the regex literal and the template literal.
-    Literal(Literal),
+    Literal {
+        /// This is the value of the literal expression.
+        value: Literal,
+        /// This is the location where the expression happens.
+        loc: Option<SourceLocation>,
+    },
     /// This is an expression created with [] brackets.
     ArrayLiteral(Option<SourceLocation>, Vec<ExpressionListItem>),
     /// This is an expression created by using {} brackets.
@@ -578,23 +583,33 @@ pub enum JsxAttribute {
 ///
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
 pub enum Statement {
     /// An expression statement.
-    Expression(Option<SourceLocation>, Expression),
+    ExpressionStatement {
+        /// The expression that the statement contains.
+        expression: Expression,
+        /// The source location in code where this statement starts.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// This is the main entry point to the syntax tree. A program is a list of statements,
 /// and statements include declarations.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Program {
-    /// This represents how the source is parsed. A module is parsed in strict mode, which
-    /// disallows things in the parser level earlier on.
-    pub source_type: SourceType,
-    /// The list of statements or declarations made by the source text.
-    pub body: Vec<Statement>,
-    /// The location of the entire program.
-    pub loc: Option<SourceLocation>,
+#[serde(tag = "type")]
+pub enum Program {
+    /// There is only one enum possible for program.
+    #[serde(rename_all = "camelCase")]
+    Program {
+        /// The list of statements or declarations made by the source text.
+        body: Vec<Statement>,
+        /// This represents how the source is parsed. A module is parsed in strict mode, which
+        /// disallows things in the parser level earlier on.
+        source_type: SourceType,
+        /// The location of the entire program.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// This enum represents whether or not the source code contains an ECMAScript module.

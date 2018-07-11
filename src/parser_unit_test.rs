@@ -22,12 +22,36 @@ macro_rules! assert_parse_failure {
 }
 
 #[test]
+fn test_block_comment() {
+    assert_parse_success!(comment, "/**/", ());
+    assert_parse_success!(comment, "/* * */", ());
+    assert_parse_success!(comment, "/** * **/", ());
+    assert_parse_success!(comment, "/* hello *\n\t */", ());
+}
+
+#[test]
 fn test_identifier_start_invalid_escape_sequence() {
     // making sure that the unicode_escape_sequence satisifies things
     // eg. ZWNJ and ZWJ are not allowed as starts
     assert_parse_failure!(identifier, r"\u000a");
     assert_parse_failure!(identifier, r"\u200d");
     assert_parse_failure!(identifier, r"\u200c");
+}
+
+#[test]
+fn test_identifier_start_valid() {
+    // testing $, _, unicode_escape_sequence as start
+    assert_parse_success!(identifier, r"\u24", "$".to_string());
+    assert_parse_success!(identifier, r"_", "_".to_string());
+}
+
+#[test]
+fn test_identifier_continue_valid() {
+    // testing $, _, ZWNJ, ZWJ, unicode_escape_sequence as continue
+    assert_parse_success!(identifier, r"a_", "a_".to_string());
+    assert_parse_success!(identifier, r"a$", "a$".to_string());
+    assert_parse_success!(identifier, r"_\u200d", "_\u{200d}".to_string());
+    assert_parse_success!(identifier, r"_\u200c", "_\u{200c}".to_string());
 }
 
 #[test]
@@ -50,124 +74,57 @@ fn test_identifier_reserved_word() {
 }
 
 #[test]
+fn test_null_literal() {
+    assert_parse_success!(null_literal, "null", NullLiteral);
+}
+
+#[test]
 fn test_boolean_literal() {
-    assert_parse_success!(
-        boolean_literal,
-        "true",
-        BooleanLiteral(Some(((1, 1), (1, 5)).into()), true)
-    );
-    assert_parse_success!(
-        boolean_literal,
-        "false",
-        BooleanLiteral(Some(((1, 1), (1, 6)).into()), false)
-    );
+    assert_parse_success!(boolean_literal, "true", BooleanLiteral(true));
+    assert_parse_success!(boolean_literal, "false", BooleanLiteral(false));
 }
 
 #[test]
 fn test_number_literal_decimal() {
     // decimal
-    assert_parse_success!(
-        numeric_literal,
-        "0",
-        NumericLiteral(Some(((1, 1), (1, 2)).into()), 0f64)
-    );
+    assert_parse_success!(numeric_literal, "0", NumericLiteral(0f64));
     assert_parse_failure!(numeric_literal, "01");
     assert_parse_failure!(numeric_literal, "01.");
-    assert_parse_success!(
-        numeric_literal,
-        "9",
-        NumericLiteral(Some(((1, 1), (1, 2)).into()), 9f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "10",
-        NumericLiteral(Some(((1, 1), (1, 3)).into()), 10f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "0.1",
-        NumericLiteral(Some(((1, 1), (1, 4)).into()), 0.1f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        ".1",
-        NumericLiteral(Some(((1, 1), (1, 3)).into()), 0.1f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "1e1",
-        NumericLiteral(Some(((1, 1), (1, 4)).into()), 10f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        ".1e1",
-        NumericLiteral(Some(((1, 1), (1, 5)).into()), 1f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "1.1e1",
-        NumericLiteral(Some(((1, 1), (1, 6)).into()), 11f64)
-    );
+    assert_parse_success!(numeric_literal, "9", NumericLiteral(9f64));
+    assert_parse_success!(numeric_literal, "10", NumericLiteral(10f64));
+    assert_parse_success!(numeric_literal, "0.1", NumericLiteral(0.1f64));
+    assert_parse_success!(numeric_literal, ".1", NumericLiteral(0.1f64));
+    assert_parse_success!(numeric_literal, "1e1", NumericLiteral(10f64));
+    assert_parse_success!(numeric_literal, ".1e1", NumericLiteral(1f64));
+    assert_parse_success!(numeric_literal, "1.1e1", NumericLiteral(11f64));
 }
 
 #[test]
 fn test_number_literal_binary() {
     // binary
-    assert_parse_success!(
-        numeric_literal,
-        "0b1010",
-        NumericLiteral(Some(((1, 1), (1, 7)).into()), 10f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "0B1010",
-        NumericLiteral(Some(((1, 1), (1, 7)).into()), 10f64)
-    );
+    assert_parse_success!(numeric_literal, "0b1010", NumericLiteral(10f64));
+    assert_parse_success!(numeric_literal, "0B1010", NumericLiteral(10f64));
 }
 
 #[test]
 fn test_number_literal_octal() {
     // octal
-    assert_parse_success!(
-        numeric_literal,
-        "0o123",
-        NumericLiteral(Some(((1, 1), (1, 6)).into()), 83f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "0O123",
-        NumericLiteral(Some(((1, 1), (1, 6)).into()), 83f64)
-    );
+    assert_parse_success!(numeric_literal, "0o123", NumericLiteral(83f64));
+    assert_parse_success!(numeric_literal, "0O123", NumericLiteral(83f64));
 }
 
 #[test]
 fn test_number_literal_hex() {
     // hex
-    assert_parse_success!(
-        numeric_literal,
-        "0XDEADBEEF",
-        NumericLiteral(Some(((1, 1), (1, 11)).into()), 3735928559f64)
-    );
-    assert_parse_success!(
-        numeric_literal,
-        "0xDEADBEEF",
-        NumericLiteral(Some(((1, 1), (1, 11)).into()), 3735928559f64)
-    );
+    assert_parse_success!(numeric_literal, "0XDEADBEEF", NumericLiteral(3735928559f64));
+    assert_parse_success!(numeric_literal, "0xDEADBEEF", NumericLiteral(3735928559f64));
 }
 
 #[test]
 fn test_string_literal_empty() {
     // empty
-    assert_parse_success!(
-        string_literal,
-        r#""""#,
-        StringLiteral(Some(((1, 1), (1, 3)).into()), String::new())
-    );
-    assert_parse_success!(
-        string_literal,
-        "''",
-        StringLiteral(Some(((1, 1), (1, 3)).into()), String::new())
-    );
+    assert_parse_success!(string_literal, r#""""#, StringLiteral(String::new()));
+    assert_parse_success!(string_literal, "''", StringLiteral(String::new()));
 }
 
 #[test]
@@ -192,40 +149,24 @@ fn test_string_literal_character_escape_sequence() {
         assert_parse_success!(
             string_literal,
             double_quote_slice,
-            StringLiteral(Some(((1, 1), (1, 5)).into()), value.to_string())
+            StringLiteral(value.to_string())
         );
         assert_parse_success!(
             string_literal,
             single_quote_slice,
-            StringLiteral(Some(((1, 1), (1, 5)).into()), value.to_string())
+            StringLiteral(value.to_string())
         );
     }
     // non character escape sequences
-    assert_parse_success!(
-        string_literal,
-        "\"\\a\"",
-        StringLiteral(Some(((1, 1), (1, 5)).into()), "a".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        "'\\a'",
-        StringLiteral(Some(((1, 1), (1, 5)).into()), "a".to_string())
-    );
+    assert_parse_success!(string_literal, "\"\\a\"", StringLiteral("a".to_string()));
+    assert_parse_success!(string_literal, "'\\a'", StringLiteral("a".to_string()));
 }
 
 #[test]
 fn test_string_literal_hex_escape_sequence() {
     // hex escape sequence
-    assert_parse_success!(
-        string_literal,
-        r#""\x0A""#,
-        StringLiteral(Some(((1, 1), (1, 7)).into()), "\n".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r#"'\x0A'"#,
-        StringLiteral(Some(((1, 1), (1, 7)).into()), "\n".to_string())
-    );
+    assert_parse_success!(string_literal, r#""\x0A""#, StringLiteral("\n".to_string()));
+    assert_parse_success!(string_literal, r#"'\x0A'"#, StringLiteral("\n".to_string()));
 }
 
 #[test]
@@ -234,22 +175,22 @@ fn test_string_literal_unicode_escape_sequence() {
     assert_parse_success!(
         string_literal,
         r#""\u2764""#,
-        StringLiteral(Some(((1, 1), (1, 9)).into()), "❤".to_string())
+        StringLiteral("❤".to_string())
     );
     assert_parse_success!(
         string_literal,
         r"'\u2764'",
-        StringLiteral(Some(((1, 1), (1, 9)).into()), "❤".to_string())
+        StringLiteral("❤".to_string())
     );
     assert_parse_success!(
         string_literal,
         r#""\u{2764}""#,
-        StringLiteral(Some(((1, 1), (1, 11)).into()), "❤".to_string())
+        StringLiteral("❤".to_string())
     );
     assert_parse_success!(
         string_literal,
         r"'\u{2764}'",
-        StringLiteral(Some(((1, 1), (1, 11)).into()), "❤".to_string())
+        StringLiteral("❤".to_string())
     );
     assert_parse_failure!(string_literal, r"'\u{110000}'");
 }
@@ -289,7 +230,6 @@ fn test_regex_literal_start_backslash() {
         RegExpLiteral {
             pattern: "\\a".to_string(),
             flags: String::new(),
-            loc: Some(((1, 1), (1, 5)).into())
         }
     );
 }
@@ -303,7 +243,6 @@ fn test_regex_literal_start_character_class() {
         RegExpLiteral {
             pattern: "[ab]".to_string(),
             flags: String::new(),
-            loc: Some(((1, 1), (1, 7)).into())
         }
     );
 }
@@ -317,7 +256,6 @@ fn test_regex_literal_continue_backslash() {
         RegExpLiteral {
             pattern: "a\\a".to_string(),
             flags: String::new(),
-            loc: Some(((1, 1), (1, 6)).into())
         }
     );
 }
@@ -331,7 +269,6 @@ fn test_regex_literal_continue_character_class() {
         RegExpLiteral {
             pattern: "a[ab]".to_string(),
             flags: String::new(),
-            loc: Some(((1, 1), (1, 8)).into())
         }
     );
 }
@@ -345,7 +282,6 @@ fn test_regex_literal_character_class_backslash() {
         RegExpLiteral {
             pattern: "a[ab\\]]".to_string(),
             flags: String::new(),
-            loc: Some(((1, 1), (1, 10)).into())
         }
     );
 }
@@ -359,7 +295,6 @@ fn test_regex_literal_flags() {
         RegExpLiteral {
             pattern: "a".to_string(),
             flags: "f".to_string(),
-            loc: Some(((1, 1), (1, 5)).into())
         }
     );
     assert_parse_success!(
@@ -368,7 +303,6 @@ fn test_regex_literal_flags() {
         RegExpLiteral {
             pattern: "a".to_string(),
             flags: "fi".to_string(),
-            loc: Some(((1, 1), (1, 6)).into())
         }
     );
     assert_parse_failure!(regex_literal, "/a/\\u1234");
@@ -382,7 +316,7 @@ fn test_template_element_empty() {
         TemplateElement {
             raw: String::new(),
             cooked: String::new(),
-            loc: Some(((1, 1), (1, 3)).into())
+            loc: Some(((1, 0), (1, 2)).into())
         }
     );
 }
@@ -395,7 +329,7 @@ fn test_template_element_no_substitution_template() {
         TemplateElement {
             raw: "asd".to_string(),
             cooked: "asd".to_string(),
-            loc: Some(((1, 1), (1, 6)).into())
+            loc: Some(((1, 0), (1, 5)).into())
         }
     );
 }
@@ -408,7 +342,7 @@ fn test_template_element_template_head() {
         TemplateElement {
             raw: "asd ".to_string(),
             cooked: "asd ".to_string(),
-            loc: Some(((1, 1), (1, 8)).into())
+            loc: Some(((1, 0), (1, 7)).into())
         }
     );
 }
@@ -421,7 +355,7 @@ fn test_template_element_template_middle() {
         TemplateElement {
             raw: " asd ".to_string(),
             cooked: " asd ".to_string(),
-            loc: Some(((1, 1), (1, 9)).into())
+            loc: Some(((1, 0), (1, 8)).into())
         }
     );
 }
@@ -435,7 +369,7 @@ fn test_template_element_template_tail() {
         TemplateElement {
             raw: " asd".to_string(),
             cooked: " asd".to_string(),
-            loc: Some(((1, 1), (1, 6)).into())
+            loc: Some(((1, 0), (1, 5)).into())
         }
     );
 }
@@ -473,7 +407,7 @@ fn test_primary_expression_this() {
     assert_parse_success!(
         primary_expression,
         "this",
-        Expression::This(Some(((1, 1), (1, 5)).into()))
+        Expression::This(Some(((1, 0), (1, 4)).into()))
     );
 }
 
@@ -483,7 +417,7 @@ fn test_primary_expression_identifier_reference() {
         primary_expression,
         "abc123",
         Expression::Identifier(Identifier(
-            Some(((1, 1), (1, 7)).into()),
+            Some(((1, 0), (1, 6)).into()),
             "abc123".to_string()
         ))
     );
@@ -494,50 +428,53 @@ fn test_primary_expression_literal() {
     assert_parse_success!(
         primary_expression,
         "null",
-        Expression::Literal(Literal::NullLiteral(NullLiteral(Some(
-            ((1, 1), (1, 5)).into()
-        ))))
+        Expression::Literal {
+            value: Literal::NullLiteral(NullLiteral),
+            loc: Some(((1, 0), (1, 4)).into())
+        }
     );
     assert_parse_success!(
         primary_expression,
         "true",
-        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
-            Some(((1, 1), (1, 5)).into()),
-            true
-        )))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(true)),
+            loc: Some(((1, 0), (1, 4)).into())
+        }
     );
     assert_parse_success!(
         primary_expression,
         "false",
-        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
-            Some(((1, 1), (1, 6)).into()),
-            false
-        )))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(false)),
+            loc: Some(((1, 0), (1, 5)).into())
+        }
     );
     assert_parse_success!(
         primary_expression,
         "123.e1",
-        Expression::Literal(Literal::NumericLiteral(NumericLiteral(
-            Some(((1, 1), (1, 7)).into()),
-            1230f64
-        )))
+        Expression::Literal {
+            value: Literal::NumericLiteral(NumericLiteral(1230f64)),
+            loc: Some(((1, 0), (1, 6)).into())
+        }
     );
     assert_parse_success!(
         primary_expression,
         "'abc'",
-        Expression::Literal(Literal::StringLiteral(StringLiteral(
-            Some(((1, 1), (1, 6)).into()),
-            "abc".to_string()
-        )))
+        Expression::Literal {
+            value: Literal::StringLiteral(StringLiteral("abc".to_string())),
+            loc: Some(((1, 0), (1, 5)).into()),
+        }
     );
     assert_parse_success!(
         primary_expression,
         "/\\a/",
-        Expression::Literal(Literal::RegExpLiteral(RegExpLiteral {
-            pattern: "\\a".to_string(),
-            flags: String::new(),
-            loc: Some(((1, 1), (1, 5)).into())
-        }))
+        Expression::Literal {
+            value: Literal::RegExpLiteral(RegExpLiteral {
+                pattern: "\\a".to_string(),
+                flags: String::new(),
+            }),
+            loc: Some(((1, 0), (1, 4)).into())
+        }
     );
 }
 
@@ -546,7 +483,7 @@ fn test_primary_expression_array_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "[]",
-        Expression::ArrayLiteral(Some(((1, 1), (1, 3)).into()), Vec::new())
+        Expression::ArrayLiteral(Some(((1, 0), (1, 2)).into()), Vec::new())
     );
 }
 
@@ -555,7 +492,7 @@ fn test_primary_expression_array_literal_elision() {
     assert_parse_success!(
         primary_expression,
         "[,,,,]",
-        Expression::ArrayLiteral(Some(((1, 1), (1, 7)).into()), Vec::new())
+        Expression::ArrayLiteral(Some(((1, 0), (1, 6)).into()), Vec::new())
     );
 }
 
@@ -565,7 +502,7 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         primary_expression,
         "[,,,,yield,,yield,,,]",
         Expression::ArrayLiteral(
-            Some(((1, 1), (1, 22)).into()),
+            Some(((1, 0), (1, 21)).into()),
             vec![
                 ExpressionListItem::Expression(Expression::Yield {
                     argument: None,
@@ -582,9 +519,9 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         primary_expression,
         "[,,,...yield,,,]",
         Expression::ArrayLiteral(
-            Some(((1, 1), (1, 17)).into()),
+            Some(((1, 0), (1, 16)).into()),
             vec![ExpressionListItem::Spread(
-                Some(((1, 5), (1, 13)).into()),
+                Some(((1, 4), (1, 12)).into()),
                 Expression::Yield {
                     argument: None,
                     delegate: false,
@@ -599,7 +536,7 @@ fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "{}",
-        Expression::ObjectLiteral(Some(((1, 1), (1, 3)).into()), Vec::new())
+        Expression::ObjectLiteral(Some(((1, 0), (1, 2)).into()), Vec::new())
     );
 }
 
@@ -609,21 +546,21 @@ fn test_primary_expression_object_literal_shorthand() {
         primary_expression,
         "{ id }",
         Expression::ObjectLiteral(
-            Some(((1, 1), (1, 7)).into()),
+            Some(((1, 0), (1, 6)).into()),
             vec![Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier(Identifier(
-                    Some(((1, 3), (1, 5)).into()),
+                    Some(((1, 2), (1, 4)).into()),
                     "id".to_string(),
                 )),
                 value: Expression::Identifier(Identifier(
-                    Some(((1, 3), (1, 5)).into()),
+                    Some(((1, 2), (1, 4)).into()),
                     "id".to_string(),
                 )),
                 method: false,
                 shorthand: true,
                 computed: false,
-                loc: Some(((1, 3), (1, 5)).into()),
+                loc: Some(((1, 2), (1, 4)).into()),
             }]
         )
     );
@@ -635,37 +572,37 @@ fn test_primary_expression_object_literal_multiple_properties() {
         primary_expression,
         "{ id, id2 }",
         Expression::ObjectLiteral(
-            Some(((1, 1), (1, 12)).into()),
+            Some(((1, 0), (1, 11)).into()),
             vec![
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier(Identifier(
-                        Some(((1, 3), (1, 5)).into()),
+                        Some(((1, 2), (1, 4)).into()),
                         "id".to_string(),
                     )),
                     value: Expression::Identifier(Identifier(
-                        Some(((1, 3), (1, 5)).into()),
+                        Some(((1, 2), (1, 4)).into()),
                         "id".to_string(),
                     )),
                     method: false,
                     shorthand: true,
                     computed: false,
-                    loc: Some(((1, 3), (1, 5)).into()),
+                    loc: Some(((1, 2), (1, 4)).into()),
                 },
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier(Identifier(
-                        Some(((1, 7), (1, 10)).into()),
+                        Some(((1, 6), (1, 9)).into()),
                         "id2".to_string(),
                     )),
                     value: Expression::Identifier(Identifier(
-                        Some(((1, 7), (1, 10)).into()),
+                        Some(((1, 6), (1, 9)).into()),
                         "id2".to_string(),
                     )),
                     method: false,
                     shorthand: true,
                     computed: false,
-                    loc: Some(((1, 7), (1, 10)).into()),
+                    loc: Some(((1, 6), (1, 9)).into()),
                 },
             ]
         )
@@ -678,37 +615,37 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
         primary_expression,
         "{ id, id2, }",
         Expression::ObjectLiteral(
-            Some(((1, 1), (1, 13)).into()),
+            Some(((1, 0), (1, 12)).into()),
             vec![
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier(Identifier(
-                        Some(((1, 3), (1, 5)).into()),
+                        Some(((1, 2), (1, 4)).into()),
                         "id".to_string(),
                     )),
                     value: Expression::Identifier(Identifier(
-                        Some(((1, 3), (1, 5)).into()),
+                        Some(((1, 2), (1, 4)).into()),
                         "id".to_string(),
                     )),
                     method: false,
                     shorthand: true,
                     computed: false,
-                    loc: Some(((1, 3), (1, 5)).into()),
+                    loc: Some(((1, 2), (1, 4)).into()),
                 },
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier(Identifier(
-                        Some(((1, 7), (1, 10)).into()),
+                        Some(((1, 6), (1, 9)).into()),
                         "id2".to_string(),
                     )),
                     value: Expression::Identifier(Identifier(
-                        Some(((1, 7), (1, 10)).into()),
+                        Some(((1, 6), (1, 9)).into()),
                         "id2".to_string(),
                     )),
                     method: false,
                     shorthand: true,
                     computed: false,
-                    loc: Some(((1, 7), (1, 10)).into()),
+                    loc: Some(((1, 6), (1, 9)).into()),
                 },
             ]
         )
@@ -721,21 +658,21 @@ fn test_primary_expression_object_literal_initializer() {
         primary_expression,
         "{ id: true }",
         Expression::ObjectLiteral(
-            Some(((1, 1), (1, 13)).into()),
+            Some(((1, 0), (1, 12)).into()),
             vec![Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier(Identifier(
-                    Some(((1, 3), (1, 5)).into()),
+                    Some(((1, 2), (1, 4)).into()),
                     "id".to_string(),
                 )),
-                value: Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(
-                    Some(((1, 7), (1, 11)).into()),
-                    true,
-                ))),
+                value: Expression::Literal {
+                    value: Literal::BooleanLiteral(BooleanLiteral(true)),
+                    loc: Some(((1, 6), (1, 10)).into()),
+                },
                 method: false,
                 shorthand: false,
                 computed: false,
-                loc: Some(((1, 3), (1, 11)).into()),
+                loc: Some(((1, 2), (1, 10)).into()),
             }]
         )
     );
@@ -878,7 +815,7 @@ fn test_primary_expression_jsx_self_closing() {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
-            loc: Some(((1, 1), (1, 7)).into())
+            loc: Some(((1, 0), (1, 6)).into())
         }
     );
 }
@@ -892,7 +829,7 @@ fn test_primary_expression_jsx_opening_closing_match() {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
-            loc: Some(((1, 1), (3, 7)).into())
+            loc: Some(((1, 0), (3, 6)).into())
         }
     );
     assert_parse_failure!(primary_expression, "<div>\n\n</v>");

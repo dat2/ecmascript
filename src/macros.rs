@@ -64,19 +64,34 @@ macro_rules! build_ast {
         Expression::Identifier($id)
     };
     (null) => {
-        Expression::Literal(Literal::NullLiteral(NullLiteral(None)))
+        Expression::Literal {
+            value: Literal::NullLiteral(NullLiteral),
+            loc: None
+        }
     };
     (true) => {
-        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(None, true)))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(true)),
+            loc: None
+        }
     };
     (false) => {
-        Expression::Literal(Literal::BooleanLiteral(BooleanLiteral(None, false)))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(false)),
+            loc: None
+        }
     };
     (num $lit:expr) => {
-        Expression::Literal(Literal::NumericLiteral(NumericLiteral(None, $lit)))
+        Expression::Literal {
+            value: Literal::NumericLiteral(NumericLiteral($lit)),
+            loc: None
+        }
     };
     (str $lit:expr) => {
-        Expression::Literal(Literal::StringLiteral(StringLiteral(None, $lit)))
+        Expression::Literal {
+            value: Literal::StringLiteral(StringLiteral($lit)),
+            loc: None
+        }
     };
     (array [$($elements:tt),*]) => {
         Expression::ArrayLiteral(None, vec![$(build_ast!($elements)),*])

@@ -22,21 +22,19 @@ impl From<SourcePosition> for Position {
     fn from(source_position: SourcePosition) -> Self {
         Position {
             line: source_position.line as usize,
-            column: source_position.column as usize,
+            column: source_position.column as usize - 1,
         }
     }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar
 
-#[allow(dead_code)]
 /// This parser will consume all following whitespace tokens, including line terminators.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
 fn ws<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     spaces().map(|_| ())
 }
 
-#[allow(dead_code)]
 /// This parser will consume a single line terminator sequence token. This parser is only needed for the
 /// line_comment parser as it will consume up to a single line terminator token.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
@@ -51,12 +49,11 @@ fn line_terminator<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
-#[allow(dead_code)]
-fn comment<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
+pub(crate) fn comment<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     try(block_comment()).or(line_comment())
 }
 
-#[allow(dead_code)]
 /// This parses a multiline comment, starting with /* and ending with */.
 /// It will consume the input and return ().
 fn block_comment<'a>(
@@ -64,7 +61,6 @@ fn block_comment<'a>(
     (string("/*"), skip_until(try(string("*/"))), string("*/")).map(|_| ())
 }
 
-#[allow(dead_code)]
 /// This parses
 fn line_comment<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
@@ -75,25 +71,21 @@ fn line_comment<'a>(
     ).map(|_| ())
 }
 
-#[allow(dead_code)]
 fn skip_tokens<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     (ws(), optional(try(comment())), ws()).map(|_| ())
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-names-and-keywords
-#[allow(dead_code)]
 fn satisfy_id_start(c: char) -> bool {
     UnicodeXID::is_xid_start(c) || c == '$' || c == '_'
 }
 
-#[allow(dead_code)]
 fn id_start<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char>
 {
     satisfy(satisfy_id_start)
 }
 
-#[allow(dead_code)]
 fn unicode_id_start<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     try(unicode_escape_sequence().map(|x| x.0).then(|c| {
@@ -105,19 +97,16 @@ fn unicode_id_start<'a>(
     })).or(id_start())
 }
 
-#[allow(dead_code)]
 fn satisfy_id_continue(c: char) -> bool {
     // 200c = ZWNJ, 200d = ZWJ
     UnicodeXID::is_xid_continue(c) || c == '\u{200C}' || c == '\u{200D}' || c == '$' || c == '_'
 }
 
-#[allow(dead_code)]
 fn id_continue<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     satisfy(satisfy_id_continue)
 }
 
-#[allow(dead_code)]
 fn unicode_id_continue<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     try(unicode_escape_sequence().map(|x| x.0).then(|c| {
@@ -130,7 +119,6 @@ fn unicode_id_continue<'a>(
 }
 
 // TODO strict mode
-#[allow(dead_code)]
 pub(crate) fn identifier<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (unicode_id_start(), many(unicode_id_continue()))
@@ -212,44 +200,31 @@ lazy_static! {
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
-#[allow(dead_code)]
 pub(crate) fn null_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NullLiteral> {
-    (position(), string("null"), position())
-        .map(|(start, _, end)| NullLiteral(Some((start, end).into())))
+    string("null").map(|_| NullLiteral)
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
-#[allow(dead_code)]
 pub(crate) fn boolean_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = BooleanLiteral> {
-    (
-        position(),
-        choice((
-            try(string("true")).map(|_| true),
-            string("false").map(|_| false),
-        )),
-        position(),
-    ).map(|(start, value, end)| BooleanLiteral(Some((start, end).into()), value))
+    (choice((
+        try(string("true")).map(|_| true),
+        string("false").map(|_| false),
+    ))).map(BooleanLiteral)
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
-#[allow(dead_code)]
 pub(crate) fn numeric_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NumericLiteral> {
-    (
-        position(),
-        choice((
-            try(binary_integer_literal()),
-            try(octal_integer_literal()),
-            try(hex_integer_literal()),
-            decimal_literal(),
-        )),
-        position(),
-    ).map(|(start, value, end)| NumericLiteral(Some((start, end).into()), value))
+    (choice((
+        try(binary_integer_literal()),
+        try(octal_integer_literal()),
+        try(hex_integer_literal()),
+        decimal_literal(),
+    ))).map(NumericLiteral)
 }
 
-#[allow(dead_code)]
 fn decimal_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
@@ -270,7 +245,6 @@ fn decimal_literal<'a>(
         .map(|s| s.parse::<f64>().unwrap())
 }
 
-#[allow(dead_code)]
 fn decimal_integer_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     choice((
@@ -280,7 +254,6 @@ fn decimal_integer_literal<'a>(
     ))
 }
 
-#[allow(dead_code)]
 fn exponent_part<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (
@@ -295,7 +268,6 @@ fn exponent_part<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn binary_integer_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
@@ -305,7 +277,6 @@ fn binary_integer_literal<'a>(
     ).map(|(_, _, digits)| i64::from_str_radix(&digits, 2).unwrap() as f64)
 }
 
-#[allow(dead_code)]
 fn octal_integer_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
@@ -315,7 +286,6 @@ fn octal_integer_literal<'a>(
     ).map(|(_, _, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
 }
 
-#[allow(dead_code)]
 fn hex_integer_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
     (
@@ -326,17 +296,11 @@ fn hex_integer_literal<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
-#[allow(dead_code)]
 pub(crate) fn string_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = StringLiteral> {
-    (
-        position(),
-        try(double_quote_string()).or(single_quote_string()),
-        position(),
-    ).map(|(start, value, end)| StringLiteral(Some((start, end).into()), value))
+    (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
 }
 
-#[allow(dead_code)]
 fn double_quote_string<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     between(
@@ -346,7 +310,6 @@ fn double_quote_string<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn double_quote_string_character<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
@@ -355,7 +318,6 @@ fn double_quote_string_character<'a>(
     ))
 }
 
-#[allow(dead_code)]
 fn single_quote_string<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     between(
@@ -365,7 +327,6 @@ fn single_quote_string<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn single_quote_string_character<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
@@ -377,7 +338,6 @@ fn single_quote_string_character<'a>(
 // (char, String) is "cooked" and "raw"
 // this is for template elements, to be able to get access to the raw string
 // this makes things uglier, but oh well
-#[allow(dead_code)]
 fn escape_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     choice((
@@ -389,7 +349,6 @@ fn escape_sequence<'a>(
     ))
 }
 
-#[allow(dead_code)]
 fn character_escape_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     token('\\')
@@ -408,7 +367,6 @@ fn character_escape_sequence<'a>(
         })
 }
 
-#[allow(dead_code)]
 fn non_escape_character_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     token('\\')
@@ -418,7 +376,6 @@ fn non_escape_character_sequence<'a>(
         .map(|(t, c)| (c, format!("{}{}", t, c)))
 }
 
-#[allow(dead_code)]
 fn hex_escape_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     (token('\\'), token('x'), count::<String, _>(2, hex_digit())).map(|(t, x, hex_digits)| {
@@ -429,7 +386,6 @@ fn hex_escape_sequence<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#prod-UnicodeEscapeSequence
-#[allow(dead_code)]
 fn unicode_escape_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     (
@@ -462,28 +418,27 @@ fn unicode_escape_sequence<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
-#[allow(dead_code)]
-pub(crate) fn regex_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = RegExpLiteral> {
-    (
-        position(),
-        between(token('/'), token('/'), regex_body()),
-        many::<String, _>(id_continue()),
-        position(),
-    ).map(|(start, pattern, flags, end)| RegExpLiteral {
-        pattern,
-        flags,
+fn regex_literal_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    (position(), regex_literal(), position()).map(|(start, value, end)| Expression::Literal {
+        value: Literal::RegExpLiteral(value),
         loc: Some((start, end).into()),
     })
 }
 
-#[allow(dead_code)]
+pub(crate) fn regex_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = RegExpLiteral> {
+    (
+        between(token('/'), token('/'), regex_body()),
+        many::<String, _>(id_continue()),
+    ).map(|(pattern, flags)| RegExpLiteral { pattern, flags })
+}
+
 fn regex_body<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (regex_first_char(), many::<String, _>(regex_char())).map(|(s, s2): (String, String)| s + &s2)
 }
 
-#[allow(dead_code)]
 fn regex_first_char<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     try(regex_backslash_sequence())
@@ -491,7 +446,6 @@ fn regex_first_char<'a>(
         .or(none_of("*/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
 }
 
-#[allow(dead_code)]
 fn regex_char<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     try(regex_backslash_sequence())
@@ -499,19 +453,16 @@ fn regex_char<'a>(
         .or(none_of("/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
 }
 
-#[allow(dead_code)]
 fn regex_non_terminator<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
     none_of("\n\r\u{2028}\u{2029}".chars())
 }
 
-#[allow(dead_code)]
 fn regex_backslash_sequence<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (token('\\'), regex_non_terminator()).map(|(c, s): (char, char)| c.to_string() + &s.to_string())
 }
 
-#[allow(dead_code)]
 fn regex_class<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
     (
@@ -526,13 +477,11 @@ fn regex_class<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
-#[allow(dead_code)]
 pub(crate) fn template<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     choice((try(no_substition_template()), template_head()))
 }
 
-#[allow(dead_code)]
 fn no_substition_template<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
@@ -554,7 +503,6 @@ fn no_substition_template<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn template_head<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
@@ -576,7 +524,6 @@ fn template_head<'a>(
     })
 }
 
-#[allow(dead_code)]
 pub(crate) fn template_character<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
     choice((
@@ -587,13 +534,11 @@ pub(crate) fn template_character<'a>(
     ))
 }
 
-#[allow(dead_code)]
 pub(crate) fn template_substition_tail<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     choice((try(template_middle()), template_tail()))
 }
 
-#[allow(dead_code)]
 fn template_middle<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
@@ -615,7 +560,6 @@ fn template_middle<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn template_tail<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
@@ -634,7 +578,6 @@ fn template_tail<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
-#[allow(dead_code)]
 pub(crate) fn primary_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((
@@ -643,21 +586,17 @@ pub(crate) fn primary_expression<'a>(
         try(literal()),
         try(array_literal()),
         try(object_literal()),
-        try(regex_literal())
-            .map(Literal::RegExpLiteral)
-            .map(Expression::Literal),
+        try(regex_literal_expression()),
         jsx_element(),
     ))
 }
 
-#[allow(dead_code)]
 fn this<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (position(), string("this"), position())
         .map(|(start, _, end)| Expression::This(Some((start, end).into())))
 }
 
-#[allow(dead_code)]
 fn identifier_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (position(), identifier(), position())
@@ -665,18 +604,23 @@ fn identifier_expression<'a>(
         .map(Expression::Identifier)
 }
 
-#[allow(dead_code)]
 fn literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((
-        try(null_literal()).map(Literal::NullLiteral),
-        try(boolean_literal()).map(Literal::BooleanLiteral),
-        try(numeric_literal()).map(Literal::NumericLiteral),
-        try(string_literal()).map(Literal::StringLiteral),
-    )).map(Expression::Literal)
+    (
+        position(),
+        choice((
+            try(null_literal()).map(Literal::NullLiteral),
+            try(boolean_literal()).map(Literal::BooleanLiteral),
+            try(numeric_literal()).map(Literal::NumericLiteral),
+            try(string_literal()).map(Literal::StringLiteral),
+        )),
+        position(),
+    ).map(|(start, value, end)| Expression::Literal {
+        value,
+        loc: Some((start, end).into()),
+    })
 }
 
-#[allow(dead_code)]
 fn array_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -690,12 +634,10 @@ fn array_literal<'a>(
     ).map(|(start, elements, end)| Expression::ArrayLiteral(Some((start, end).into()), elements))
 }
 
-#[allow(dead_code)]
 fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
     many::<Vec<_>, _>(token(',')).with(skip_tokens())
 }
 
-#[allow(dead_code)]
 fn element_list<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<ExpressionListItem>>
 {
@@ -707,7 +649,6 @@ fn element_list<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn object_literal<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -726,7 +667,6 @@ fn object_literal<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn property_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     choice((
@@ -736,7 +676,6 @@ fn property_definition<'a>(
     ))
 }
 
-#[allow(dead_code)]
 fn shorthand_property<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (position(), identifier_expression(), position()).map(|(start, id, end)| Property {
@@ -750,7 +689,6 @@ fn shorthand_property<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn property_initializer<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -772,27 +710,28 @@ fn property_initializer<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn property_name<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((try(literal_property_name()), try(computed_property_name())))
 }
 
-#[allow(dead_code)]
 fn literal_property_name<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((
         identifier_expression(),
-        string_literal()
-            .map(Literal::StringLiteral)
-            .map(Expression::Literal),
-        numeric_literal()
-            .map(Literal::NumericLiteral)
-            .map(Expression::Literal),
+        (position(), string_literal(), position()).map(|(start, value, end)| Expression::Literal {
+            value: Literal::StringLiteral(value),
+            loc: Some((start, end).into()),
+        }),
+        (position(), numeric_literal(), position()).map(|(start, value, end)| {
+            Expression::Literal {
+                value: Literal::NumericLiteral(value),
+                loc: Some((start, end).into()),
+            }
+        }),
     ))
 }
 
-#[allow(dead_code)]
 fn computed_property_name<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     between(
@@ -802,7 +741,6 @@ fn computed_property_name<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn spread_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ExpressionListItem>
 {
@@ -815,13 +753,11 @@ fn spread_element<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn assignment_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     yield_expression()
 }
 
-#[allow(dead_code)]
 fn yield_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -836,13 +772,11 @@ fn yield_expression<'a>(
 }
 
 // https://facebook.github.io/jsx/
-#[allow(dead_code)]
 fn jsx_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     choice((try(jsx_self_closing_element()), jsx_matched_element()))
 }
 
-#[allow(dead_code)]
 fn jsx_self_closing_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -857,7 +791,6 @@ fn jsx_self_closing_element<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn jsx_matched_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -889,18 +822,19 @@ fn jsx_matched_element<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
-#[allow(dead_code)]
 fn statement<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Statement> {
     // TODO use assignment_expression instead
     (position(), primary_expression(), position()).map(|(start, expression, end)| {
-        Statement::Expression(Some((start, end).into()), expression)
+        Statement::ExpressionStatement {
+            loc: Some((start, end).into()),
+            expression,
+        }
     })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
-#[allow(dead_code)]
 fn formal_parameters<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Pattern>> {
     between(
@@ -910,7 +844,6 @@ fn formal_parameters<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn formal_parameter<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Pattern> {
     (position(), identifier(), position())
@@ -918,7 +851,6 @@ fn formal_parameter<'a>(
         .map(Pattern::Identifier)
 }
 
-#[allow(dead_code)]
 fn function_body<'a>(
     _yield: bool,
     _await: bool,
@@ -930,7 +862,6 @@ fn function_body<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     choice((
@@ -943,7 +874,6 @@ fn method_definition<'a>(
     ))
 }
 
-#[allow(dead_code)]
 fn basic_method_definition<'a>(
     _yield: bool,
     _await: bool,
@@ -979,7 +909,6 @@ fn basic_method_definition<'a>(
     )
 }
 
-#[allow(dead_code)]
 fn generator_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -989,7 +918,6 @@ fn generator_method_definition<'a>(
     ).map(|x| x.2)
 }
 
-#[allow(dead_code)]
 fn async_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -999,7 +927,6 @@ fn async_method_definition<'a>(
     ).map(|x| x.2)
 }
 
-#[allow(dead_code)]
 fn async_generator_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -1011,7 +938,6 @@ fn async_generator_method_definition<'a>(
     ).map(|x| x.4)
 }
 
-#[allow(dead_code)]
 fn getter_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -1039,7 +965,6 @@ fn getter_method_definition<'a>(
     })
 }
 
-#[allow(dead_code)]
 fn setter_method_definition<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
     (
@@ -1071,7 +996,6 @@ fn setter_method_definition<'a>(
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
-#[allow(dead_code)]
 fn program<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Program> {
     (
@@ -1080,7 +1004,7 @@ fn program<'a>(
         many::<Vec<_>, _>(statement().skip(skip_tokens())),
         eof(),
         position(),
-    ).map(|(start, _, body, _, end)| Program {
+    ).map(|(start, _, body, _, end)| Program::Program {
         source_type: SourceType::Script,
         body,
         loc: Some((start, end).into()),
