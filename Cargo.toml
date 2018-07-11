@@ -19,6 +19,9 @@ readme = "README.md"
 repository = "https://github.com/dat2/ecmascript"
 version = "0.2.0"
 
+[[test]]
+harness = false
+name = "parser_integration_test"
 [badges.codecov]
 branch = "master"
 repository = "dat2/ecmascript"
@@ -31,14 +34,11 @@ status = "actively-developed"
 branch = "master"
 repository = "dat2/ecmascript"
 
-[[test]]
-harness = false
-name = "parser_integration_test"
-
 [build-dependencies]
 rustc_version = "0.2.2"
 
 [dependencies]
+clap = "2.32.0"
 combine = "3.3.2"
 failure = "0.1.1"
 glob = "0.2.11"

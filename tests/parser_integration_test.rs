@@ -54,7 +54,11 @@ mod nightly_integration_tests {
     fn add_test(tests: &mut Vec<TestDescAndFn>, scope: &str, test_fixture: TestFixture) {
         tests.push(TestDescAndFn {
             desc: TestDesc {
-                name: TestName::DynTestName(format!("parser_integration_test::{}::{}", scope, test_fixture.name())),
+                name: TestName::DynTestName(format!(
+                    "parser_integration_test::{}::{}",
+                    scope,
+                    test_fixture.name()
+                )),
                 ignore: false,
                 should_panic: No,
                 allow_fail: false,
