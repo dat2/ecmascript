@@ -407,7 +407,9 @@ fn test_primary_expression_this() {
     assert_parse_success!(
         primary_expression,
         "this",
-        Expression::This(Some(((1, 0), (1, 4)).into()))
+        Expression::This {
+            loc: Some(((1, 0), (1, 4)).into())
+        }
     );
 }
 
@@ -416,10 +418,10 @@ fn test_primary_expression_identifier_reference() {
     assert_parse_success!(
         primary_expression,
         "abc123",
-        Expression::Identifier(Identifier(
-            Some(((1, 0), (1, 6)).into()),
-            "abc123".to_string()
-        ))
+        Expression::Identifier {
+            loc: Some(((1, 0), (1, 6)).into()),
+            name: "abc123".to_string()
+        }
     );
 }
 
@@ -549,14 +551,14 @@ fn test_primary_expression_object_literal_shorthand() {
             Some(((1, 0), (1, 6)).into()),
             vec![Property {
                 kind: PropertyKind::Init,
-                key: Expression::Identifier(Identifier(
-                    Some(((1, 2), (1, 4)).into()),
-                    "id".to_string(),
-                )),
-                value: Expression::Identifier(Identifier(
-                    Some(((1, 2), (1, 4)).into()),
-                    "id".to_string(),
-                )),
+                key: Expression::Identifier {
+                    loc: Some(((1, 2), (1, 4)).into()),
+                    name: "id".to_string(),
+                },
+                value: Expression::Identifier {
+                    loc: Some(((1, 2), (1, 4)).into()),
+                    name: "id".to_string(),
+                },
                 method: false,
                 shorthand: true,
                 computed: false,
@@ -576,14 +578,14 @@ fn test_primary_expression_object_literal_multiple_properties() {
             vec![
                 Property {
                     kind: PropertyKind::Init,
-                    key: Expression::Identifier(Identifier(
-                        Some(((1, 2), (1, 4)).into()),
-                        "id".to_string(),
-                    )),
-                    value: Expression::Identifier(Identifier(
-                        Some(((1, 2), (1, 4)).into()),
-                        "id".to_string(),
-                    )),
+                    key: Expression::Identifier {
+                        loc: Some(((1, 2), (1, 4)).into()),
+                        name: "id".to_string(),
+                    },
+                    value: Expression::Identifier {
+                        loc: Some(((1, 2), (1, 4)).into()),
+                        name: "id".to_string(),
+                    },
                     method: false,
                     shorthand: true,
                     computed: false,
@@ -591,14 +593,14 @@ fn test_primary_expression_object_literal_multiple_properties() {
                 },
                 Property {
                     kind: PropertyKind::Init,
-                    key: Expression::Identifier(Identifier(
-                        Some(((1, 6), (1, 9)).into()),
-                        "id2".to_string(),
-                    )),
-                    value: Expression::Identifier(Identifier(
-                        Some(((1, 6), (1, 9)).into()),
-                        "id2".to_string(),
-                    )),
+                    key: Expression::Identifier {
+                        loc: Some(((1, 6), (1, 9)).into()),
+                        name: "id2".to_string(),
+                    },
+                    value: Expression::Identifier {
+                        loc: Some(((1, 6), (1, 9)).into()),
+                        name: "id2".to_string(),
+                    },
                     method: false,
                     shorthand: true,
                     computed: false,
@@ -619,14 +621,14 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
             vec![
                 Property {
                     kind: PropertyKind::Init,
-                    key: Expression::Identifier(Identifier(
-                        Some(((1, 2), (1, 4)).into()),
-                        "id".to_string(),
-                    )),
-                    value: Expression::Identifier(Identifier(
-                        Some(((1, 2), (1, 4)).into()),
-                        "id".to_string(),
-                    )),
+                    key: Expression::Identifier {
+                        loc: Some(((1, 2), (1, 4)).into()),
+                        name: "id".to_string(),
+                    },
+                    value: Expression::Identifier {
+                        loc: Some(((1, 2), (1, 4)).into()),
+                        name: "id".to_string(),
+                    },
                     method: false,
                     shorthand: true,
                     computed: false,
@@ -634,14 +636,14 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                 },
                 Property {
                     kind: PropertyKind::Init,
-                    key: Expression::Identifier(Identifier(
-                        Some(((1, 6), (1, 9)).into()),
-                        "id2".to_string(),
-                    )),
-                    value: Expression::Identifier(Identifier(
-                        Some(((1, 6), (1, 9)).into()),
-                        "id2".to_string(),
-                    )),
+                    key: Expression::Identifier {
+                        loc: Some(((1, 6), (1, 9)).into()),
+                        name: "id2".to_string(),
+                    },
+                    value: Expression::Identifier {
+                        loc: Some(((1, 6), (1, 9)).into()),
+                        name: "id2".to_string(),
+                    },
                     method: false,
                     shorthand: true,
                     computed: false,
@@ -661,10 +663,10 @@ fn test_primary_expression_object_literal_initializer() {
             Some(((1, 0), (1, 12)).into()),
             vec![Property {
                 kind: PropertyKind::Init,
-                key: Expression::Identifier(Identifier(
-                    Some(((1, 2), (1, 4)).into()),
-                    "id".to_string(),
-                )),
+                key: Expression::Identifier {
+                    loc: Some(((1, 2), (1, 4)).into()),
+                    name: "id".to_string(),
+                },
                 value: Expression::Literal {
                     value: Literal::BooleanLiteral(BooleanLiteral(true)),
                     loc: Some(((1, 6), (1, 10)).into()),

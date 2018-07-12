@@ -136,9 +136,17 @@ pub struct TemplateElement {
 // #[serde(tag = "type")]
 pub enum Expression {
     /// The 'this' keyword is a primary expression.
-    This(Option<SourceLocation>),
+    This {
+        /// The source location of the expression.
+        loc: Option<SourceLocation>,
+    },
     /// An identifier can also be a primary expression.
-    Identifier(Identifier),
+    Identifier {
+        /// The actual identifier name.
+        name: String,
+        /// The source location of the expression.
+        loc: Option<SourceLocation>,
+    },
     /// This is all literals minus the regex literal and the template literal.
     Literal {
         /// This is the value of the literal expression.

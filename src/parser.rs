@@ -593,15 +593,17 @@ pub(crate) fn primary_expression<'a>(
 
 fn this<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), string("this"), position())
-        .map(|(start, _, end)| Expression::This(Some((start, end).into())))
+    (position(), string("this"), position()).map(|(start, _, end)| Expression::This {
+        loc: Some((start, end).into()),
+    })
 }
 
 fn identifier_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), identifier(), position())
-        .map(|(start, id, end)| Identifier(Some((start, end).into()), id))
-        .map(Expression::Identifier)
+    (position(), identifier(), position()).map(|(start, name, end)| Expression::Identifier {
+        name,
+        loc: Some((start, end).into()),
+    })
 }
 
 fn literal<'a>(
