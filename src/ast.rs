@@ -162,7 +162,12 @@ pub enum Expression {
         loc: Option<SourceLocation>,
     },
     /// This is an expression created by using {} brackets.
-    ObjectLiteral(Option<SourceLocation>, Vec<Property>),
+    ObjectLiteral {
+        /// This is the list of properties for the object.
+        properties: Vec<Property>,
+        /// This is the location where the expression starts.
+        loc: Option<SourceLocation>,
+    },
     /// A function expression is a function defined in an expression position.
     /// Arrow functions are one where the body is a single statement that is an expression
     /// statement.

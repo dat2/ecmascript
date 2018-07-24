@@ -544,7 +544,10 @@ fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "{}",
-        Expression::ObjectLiteral(Some(((1, 0), (1, 2)).into()), Vec::new())
+        Expression::ObjectLiteral {
+            loc: Some(((1, 0), (1, 2)).into()),
+            properties: Vec::new()
+        }
     );
 }
 
@@ -553,9 +556,9 @@ fn test_primary_expression_object_literal_shorthand() {
     assert_parse_success!(
         primary_expression,
         "{ id }",
-        Expression::ObjectLiteral(
-            Some(((1, 0), (1, 6)).into()),
-            vec![Property {
+        Expression::ObjectLiteral {
+            loc: Some(((1, 0), (1, 6)).into()),
+            properties: vec![Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -569,8 +572,8 @@ fn test_primary_expression_object_literal_shorthand() {
                 shorthand: true,
                 computed: false,
                 loc: Some(((1, 2), (1, 4)).into()),
-            }]
-        )
+            }],
+        }
     );
 }
 
@@ -579,9 +582,9 @@ fn test_primary_expression_object_literal_multiple_properties() {
     assert_parse_success!(
         primary_expression,
         "{ id, id2 }",
-        Expression::ObjectLiteral(
-            Some(((1, 0), (1, 11)).into()),
-            vec![
+        Expression::ObjectLiteral {
+            loc: Some(((1, 0), (1, 11)).into()),
+            properties: vec![
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
@@ -612,8 +615,8 @@ fn test_primary_expression_object_literal_multiple_properties() {
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
                 },
-            ]
-        )
+            ],
+        }
     );
 }
 
@@ -622,9 +625,9 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
     assert_parse_success!(
         primary_expression,
         "{ id, id2, }",
-        Expression::ObjectLiteral(
-            Some(((1, 0), (1, 12)).into()),
-            vec![
+        Expression::ObjectLiteral {
+            loc: Some(((1, 0), (1, 12)).into()),
+            properties: vec![
                 Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
@@ -655,8 +658,8 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
                 },
-            ]
-        )
+            ],
+        }
     );
 }
 
@@ -665,9 +668,9 @@ fn test_primary_expression_object_literal_initializer() {
     assert_parse_success!(
         primary_expression,
         "{ id: true }",
-        Expression::ObjectLiteral(
-            Some(((1, 0), (1, 12)).into()),
-            vec![Property {
+        Expression::ObjectLiteral {
+            loc: Some(((1, 0), (1, 12)).into()),
+            properties: vec![Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -681,8 +684,8 @@ fn test_primary_expression_object_literal_initializer() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 10)).into()),
-            }]
-        )
+            }],
+        }
     );
 }
 

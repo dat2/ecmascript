@@ -667,8 +667,9 @@ fn object_literal<'a>(
             ),
         ),
         position(),
-    ).map(|(start, properties, end)| {
-        Expression::ObjectLiteral(Some((start, end).into()), properties)
+    ).map(|(start, properties, end)| Expression::ObjectLiteral {
+        loc: Some((start, end).into()),
+        properties,
     })
 }
 

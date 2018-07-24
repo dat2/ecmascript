@@ -106,7 +106,10 @@ macro_rules! build_ast {
         ExpressionListItem::Spread(None, build_ast!($($expression)+))
     };
     (object [$($properties:tt),*]) => {
-        Expression::ObjectLiteral(None, vec![$(build_ast!($properties)),*])
+        Expression::ObjectLiteral {
+            loc: None,
+            properties: vec![$(build_ast!($properties)),*]
+        }
     };
     ([$($key:tt)+]: [$($value:tt)+]) => {
         Property {
