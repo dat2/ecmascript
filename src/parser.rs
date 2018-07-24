@@ -633,7 +633,10 @@ fn array_literal<'a>(
             elision().with(element_list()).skip(elision()),
         ),
         position(),
-    ).map(|(start, elements, end)| Expression::ArrayLiteral(Some((start, end).into()), elements))
+    ).map(|(start, elements, end)| Expression::Array {
+        elements,
+        loc: Some((start, end).into()),
+    })
 }
 
 fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {

@@ -94,7 +94,10 @@ macro_rules! build_ast {
         }
     };
     (array [$($elements:tt),*]) => {
-        Expression::ArrayLiteral(None, vec![$(build_ast!($elements)),*])
+        Expression::Array {
+            loc: None,
+            elements: vec![$(build_ast!($elements)),*]
+        }
     };
     (array_expr $($expression:tt)+) => {
         ExpressionListItem::Expression(build_ast!($($expression)+))

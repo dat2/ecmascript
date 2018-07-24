@@ -155,7 +155,12 @@ pub enum Expression {
         loc: Option<SourceLocation>,
     },
     /// This is an expression created with [] brackets.
-    ArrayLiteral(Option<SourceLocation>, Vec<ExpressionListItem>),
+    Array {
+        /// This is the list of elements in the array expression.
+        elements: Vec<ExpressionListItem>,
+        /// This is the location where the expression starts.
+        loc: Option<SourceLocation>,
+    },
     /// This is an expression created by using {} brackets.
     ObjectLiteral(Option<SourceLocation>, Vec<Property>),
     /// A function expression is a function defined in an expression position.

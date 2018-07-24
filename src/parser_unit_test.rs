@@ -485,7 +485,10 @@ fn test_primary_expression_array_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "[]",
-        Expression::ArrayLiteral(Some(((1, 0), (1, 2)).into()), Vec::new())
+        Expression::Array {
+            loc: Some(((1, 0), (1, 2)).into()),
+            elements: Vec::new()
+        }
     );
 }
 
@@ -494,7 +497,10 @@ fn test_primary_expression_array_literal_elision() {
     assert_parse_success!(
         primary_expression,
         "[,,,,]",
-        Expression::ArrayLiteral(Some(((1, 0), (1, 6)).into()), Vec::new())
+        Expression::Array {
+            loc: Some(((1, 0), (1, 6)).into()),
+            elements: Vec::new()
+        }
     );
 }
 
@@ -503,9 +509,9 @@ fn test_primary_expression_array_literal_elision_and_elements() {
     assert_parse_success!(
         primary_expression,
         "[,,,,yield,,yield,,,]",
-        Expression::ArrayLiteral(
-            Some(((1, 0), (1, 21)).into()),
-            vec![
+        Expression::Array {
+            loc: Some(((1, 0), (1, 21)).into()),
+            elements: vec![
                 ExpressionListItem::Expression(Expression::Yield {
                     argument: None,
                     delegate: false,
@@ -514,22 +520,22 @@ fn test_primary_expression_array_literal_elision_and_elements() {
                     argument: None,
                     delegate: false,
                 }),
-            ]
-        )
+            ],
+        }
     );
     assert_parse_success!(
         primary_expression,
         "[,,,...yield,,,]",
-        Expression::ArrayLiteral(
-            Some(((1, 0), (1, 16)).into()),
-            vec![ExpressionListItem::Spread(
+        Expression::Array {
+            loc: Some(((1, 0), (1, 16)).into()),
+            elements: vec![ExpressionListItem::Spread(
                 Some(((1, 4), (1, 12)).into()),
                 Expression::Yield {
                     argument: None,
                     delegate: false,
                 },
-            )]
-        )
+            )],
+        }
     );
 }
 
