@@ -8,10 +8,10 @@
 /// # use ecmascript::ast::*;
 /// let my_wrapper_func = build_ast! {
 ///   [array [
-///       [array_expr true],
-///       [array_expr false],
-///       [array_expr null],
-///       [...[array [ [array_expr num 1f64] ]]]
+///       [array_item true],
+///       [array_item false],
+///       [array_item null],
+///       [...[array [ [array_item num 1f64] ]]]
 ///    ]]
 /// };
 /// ```
@@ -94,12 +94,12 @@ macro_rules! build_ast {
         }
     };
     (array [$($elements:tt),*]) => {
-        Expression::Array {
+        Expression::ArrayExpression {
             loc: None,
             elements: vec![$(build_ast!($elements)),*]
         }
     };
-    (array_expr $($expression:tt)+) => {
+    (array_item $($expression:tt)+) => {
         ExpressionListItem::Expression(build_ast!($($expression)+))
     };
     (...$($expression:tt)+) => {

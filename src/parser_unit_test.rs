@@ -407,7 +407,7 @@ fn test_primary_expression_this() {
     assert_parse_success!(
         primary_expression,
         "this",
-        Expression::This {
+        Expression::ThisExpression {
             loc: Some(((1, 0), (1, 4)).into())
         }
     );
@@ -485,7 +485,7 @@ fn test_primary_expression_array_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "[]",
-        Expression::Array {
+        Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 2)).into()),
             elements: Vec::new()
         }
@@ -497,7 +497,7 @@ fn test_primary_expression_array_literal_elision() {
     assert_parse_success!(
         primary_expression,
         "[,,,,]",
-        Expression::Array {
+        Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 6)).into()),
             elements: Vec::new()
         }
@@ -509,7 +509,7 @@ fn test_primary_expression_array_literal_elision_and_elements() {
     assert_parse_success!(
         primary_expression,
         "[,,,,yield,,yield,,,]",
-        Expression::Array {
+        Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 21)).into()),
             elements: vec![
                 ExpressionListItem::Expression(Expression::Yield {
@@ -526,7 +526,7 @@ fn test_primary_expression_array_literal_elision_and_elements() {
     assert_parse_success!(
         primary_expression,
         "[,,,...yield,,,]",
-        Expression::Array {
+        Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 16)).into()),
             elements: vec![ExpressionListItem::Spread(
                 Some(((1, 4), (1, 12)).into()),
@@ -544,7 +544,7 @@ fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
         primary_expression,
         "{}",
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 2)).into()),
             properties: Vec::new()
         }
@@ -556,7 +556,7 @@ fn test_primary_expression_object_literal_shorthand() {
     assert_parse_success!(
         primary_expression,
         "{ id }",
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 6)).into()),
             properties: vec![Property {
                 kind: PropertyKind::Init,
@@ -582,7 +582,7 @@ fn test_primary_expression_object_literal_multiple_properties() {
     assert_parse_success!(
         primary_expression,
         "{ id, id2 }",
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
             properties: vec![
                 Property {
@@ -625,7 +625,7 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
     assert_parse_success!(
         primary_expression,
         "{ id, id2, }",
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
             properties: vec![
                 Property {
@@ -668,7 +668,7 @@ fn test_primary_expression_object_literal_initializer() {
     assert_parse_success!(
         primary_expression,
         "{ id: true }",
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
             properties: vec![Property {
                 kind: PropertyKind::Init,
@@ -689,18 +689,29 @@ fn test_primary_expression_object_literal_initializer() {
     );
 }
 
-/*
 #[test]
 fn test_object_literal_initializer_string_literal() {
     assert_parse_success!(
         primary_expression,
         "{ 'id': true }",
-        Ok((
-            build_ast!(object [
-                [[str "id".to_string()]: [true]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            loc: Some(((1, 0), (1, 14)).into()),
+            properties: vec![Property {
+                kind: PropertyKind::Init,
+                key: Expression::Literal {
+                    value: Literal::StringLiteral(StringLiteral("id".to_string())),
+                    loc: Some(((1, 2), (1, 6)).into()),
+                },
+                value: Expression::Literal {
+                    value: Literal::BooleanLiteral(BooleanLiteral(true)),
+                    loc: Some(((1, 8), (1, 12)).into()),
+                },
+                method: false,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 2), (1, 12)).into()),
+            }],
+        }
     );
 }
 
@@ -709,12 +720,24 @@ fn test_object_literal_initializer_numeric_literal() {
     assert_parse_success!(
         primary_expression,
         "{ 0: true }",
-        Ok((
-            build_ast!(object [
-                [[num 0f64]: [true]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            loc: Some(((1, 0), (1, 11)).into()),
+            properties: vec![Property {
+                kind: PropertyKind::Init,
+                key: Expression::Literal {
+                    value: Literal::NumericLiteral(NumericLiteral(0f64)),
+                    loc: Some(((1, 2), (1, 3)).into()),
+                },
+                value: Expression::Literal {
+                    value: Literal::BooleanLiteral(BooleanLiteral(true)),
+                    loc: Some(((1, 5), (1, 9)).into()),
+                },
+                method: false,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 2), (1, 9)).into()),
+            }],
+        }
     );
 }
 
@@ -723,15 +746,28 @@ fn test_object_literal_initializer_computed() {
     assert_parse_success!(
         primary_expression,
         "{ [yield]: true }",
-        Ok((
-            build_ast!(object [
-                [[yield]: [true]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            loc: Some(((1, 0), (1, 17)).into()),
+            properties: vec![Property {
+                kind: PropertyKind::Init,
+                key: Expression::Yield {
+                    argument: None,
+                    delegate: false,
+                },
+                value: Expression::Literal {
+                    value: Literal::BooleanLiteral(BooleanLiteral(true)),
+                    loc: Some(((1, 11), (1, 15)).into()),
+                },
+                method: false,
+                shorthand: false,
+                computed: true,
+                loc: Some(((1, 2), (1, 15)).into()),
+            }],
+        }
     );
 }
 
+/*
 #[test]
 fn test_object_literal_method_definition() {
     assert_parse_success!(

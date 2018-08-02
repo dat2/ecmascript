@@ -593,7 +593,7 @@ pub(crate) fn primary_expression<'a>(
 
 fn this<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), string("this"), position()).map(|(start, _, end)| Expression::This {
+    (position(), string("this"), position()).map(|(start, _, end)| Expression::ThisExpression {
         loc: Some((start, end).into()),
     })
 }
@@ -633,7 +633,7 @@ fn array_literal<'a>(
             elision().with(element_list()).skip(elision()),
         ),
         position(),
-    ).map(|(start, elements, end)| Expression::Array {
+    ).map(|(start, elements, end)| Expression::ArrayExpression {
         elements,
         loc: Some((start, end).into()),
     })
@@ -667,7 +667,7 @@ fn object_literal<'a>(
             ),
         ),
         position(),
-    ).map(|(start, properties, end)| Expression::ObjectLiteral {
+    ).map(|(start, properties, end)| Expression::ObjectExpression {
         loc: Some((start, end).into()),
         properties,
     })
@@ -705,20 +705,24 @@ fn property_initializer<'a>(
         skip_tokens(),
         literal(),
         position(),
-    ).map(|(start, key, _, _, _, value, end)| Property {
+    ).map(|(start, (key, computed), _, _, _, value, end)| Property {
         key,
         value,
         kind: PropertyKind::Init,
         method: false,
         shorthand: false,
-        computed: false,
+        computed,
         loc: Some((start, end).into()),
     })
 }
 
 fn property_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((try(literal_property_name()), try(computed_property_name())))
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (Expression, bool)>
+{
+    choice((
+        try(literal_property_name()).map(|e| (e, false)),
+        try(computed_property_name()).map(|e| (e, true)),
+    ))
 }
 
 fn literal_property_name<'a>(
@@ -897,9 +901,9 @@ fn basic_method_definition<'a>(
         value(_await),
         position(),
     ).map(
-        |(start, key, _, params, _, body, _yield, _await, end)| Property {
+        |(start, (key, computed), _, params, _, body, _yield, _await, end)| Property {
             key,
-            value: Expression::Function {
+            value: Expression::FunctionExpression {
                 id: None,
                 async: _await,
                 generator: _yield,
@@ -909,7 +913,7 @@ fn basic_method_definition<'a>(
             kind: PropertyKind::Init,
             method: true,
             shorthand: false,
-            computed: false,
+            computed,
             loc: Some((start, end).into()),
         },
     )
@@ -954,9 +958,9 @@ fn getter_method_definition<'a>(
         token(')').skip(skip_tokens()),
         function_body(false, false),
         position(),
-    ).map(|(start, _, key, _, _, body, end)| Property {
+    ).map(|(start, _, (key, computed), _, _, body, end)| Property {
         key,
-        value: Expression::Function {
+        value: Expression::FunctionExpression {
             id: None,
             async: false,
             generator: false,
@@ -966,7 +970,7 @@ fn getter_method_definition<'a>(
         kind: PropertyKind::Get,
         method: false,
         shorthand: false,
-        computed: false,
+        computed,
         loc: Some((start, end).into()),
     })
 }
@@ -984,9 +988,9 @@ fn setter_method_definition<'a>(
         ),
         function_body(false, false),
         position(),
-    ).map(|(start, _, key, param, body, end)| Property {
+    ).map(|(start, _, (key, computed), param, body, end)| Property {
         key,
-        value: Expression::Function {
+        value: Expression::FunctionExpression {
             id: None,
             async: false,
             generator: false,
@@ -996,7 +1000,7 @@ fn setter_method_definition<'a>(
         kind: PropertyKind::Set,
         method: false,
         shorthand: false,
-        computed: false,
+        computed,
         loc: Some((start, end).into()),
     })
 }

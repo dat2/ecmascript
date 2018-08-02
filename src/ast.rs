@@ -135,11 +135,6 @@ pub struct TemplateElement {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 // #[serde(tag = "type")]
 pub enum Expression {
-    /// The 'this' keyword is a primary expression.
-    This {
-        /// The source location of the expression.
-        loc: Option<SourceLocation>,
-    },
     /// An identifier can also be a primary expression.
     Identifier {
         /// The actual identifier name.
@@ -154,15 +149,20 @@ pub enum Expression {
         /// This is the location where the expression happens.
         loc: Option<SourceLocation>,
     },
+    /// The 'this' keyword is a primary expression.
+    ThisExpression {
+        /// The source location of the expression.
+        loc: Option<SourceLocation>,
+    },
     /// This is an expression created with [] brackets.
-    Array {
+    ArrayExpression {
         /// This is the list of elements in the array expression.
         elements: Vec<ExpressionListItem>,
         /// This is the location where the expression starts.
         loc: Option<SourceLocation>,
     },
     /// This is an expression created by using {} brackets.
-    ObjectLiteral {
+    ObjectExpression {
         /// This is the list of properties for the object.
         properties: Vec<Property>,
         /// This is the location where the expression starts.
@@ -171,7 +171,7 @@ pub enum Expression {
     /// A function expression is a function defined in an expression position.
     /// Arrow functions are one where the body is a single statement that is an expression
     /// statement.
-    Function {
+    FunctionExpression {
         /// A function expression can be anonymous, where it has no name.
         id: Option<Identifier>,
         /// The formal parameters to a function.
@@ -184,18 +184,15 @@ pub enum Expression {
         /// This is true if there is a `*` character after the `function` keyword.
         generator: bool,
     },
-    // Class,
-    /// A Template literal expression has many template elements with expressions littered
-    /// between.
-    ///
-    /// When a template literal gets passed to the tagged template, it usually gets split into
-    /// the quasis (the pieces between the interpolated expressions) as an array for the first
-    /// argument, and the expressions get spread into the rest of the function call.
-    ///
-    /// For the sake of simplicity, we are not representing this in the AST.
-    TemplateLiteral(Vec<TemplateLiteralElement>),
-    /// A spread expression is an expression of the form `...(<expression>)`.
-    Spread(Box<Expression>),
+    /// A unary expression is a unary operator in prefix position to the operand.
+    Unary {
+        /// The operator is one that can only take a single operand.
+        operator: UnaryOperator,
+        /// This is just for estree.
+        prefix: bool,
+        /// The expression is the operand that is passed to the operator.
+        argument: Box<Expression>,
+    },
     /// A member expression is a property access expression.
     /// Eg. `obj.key` or `obj[computed_key]`
     Member {
@@ -256,13 +253,6 @@ pub enum Expression {
         /// This tells you if the operator is in prefix or postfix position.
         prefix: bool,
     },
-    /// A unary expression is a unary operator in prefix position to the operand.
-    Unary {
-        /// The operator is one that can only take a single operand.
-        operator: UnaryOperator,
-        /// The expression is the operand that is passed to the operator.
-        argument: Box<Expression>,
-    },
     /// The binary expression is one of the form (lhs operand rhs).
     Binary {
         /// The operand that is infixed between the operands.
@@ -295,6 +285,16 @@ pub enum Expression {
         /// The expression that changes the lhs.
         rhs: Box<Expression>,
     },
+    /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
+    /// throw it away, and return the second operand.
+    ///
+    /// For a list of operands, it will evaluate all operands, throw them away, and then
+    /// finally return the last operand.
+    ///
+    /// This is mainly useful for side effects, eg. (console.log(expr), expr).
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
+    Comma(Vec<Expression>),
+    // ArrowFunctionExpression
     /// The yield expression that is only valid inside a generator function.
     /// It is a syntax error if there is a yield expression in the body of a non generator
     /// function.
@@ -306,15 +306,23 @@ pub enum Expression {
         /// until the delegate generator completes.
         delegate: bool, // yield *
     },
-    /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
-    /// throw it away, and return the second operand.
+    // Class,
+    /// A Template literal expression has many template elements with expressions littered
+    /// between.
     ///
-    /// For a list of operands, it will evaluate all operands, throw them away, and then
-    /// finally return the last operand.
+    /// When a template literal gets passed to the tagged template, it usually gets split into
+    /// the quasis (the pieces between the interpolated expressions) as an array for the first
+    /// argument, and the expressions get spread into the rest of the function call.
     ///
-    /// This is mainly useful for side effects, eg. (console.log(expr), expr).
-    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
-    Comma(Vec<Expression>),
+    /// For the sake of simplicity, we are not representing this in the AST.
+    TemplateLiteral {
+        /// Quasis includes all strings parsed by the template literal.
+        quasis: Vec<TemplateElement>,
+        /// All expressions that are interpolated into the final string.
+        expressions: Vec<Expression>,
+        /// This is the location where the expression starts.
+        loc: Option<SourceLocation>,
+    },
     /// *NOTE*: This is an extension to the language proposed by facebook.
     /// The JsxElement is an inlined expression of the form:
     /// <name key={value}>
