@@ -133,7 +133,7 @@ pub struct TemplateElement {
 /// [Update Expressions](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-update-expressions)
 /// [JSX Specification](https://facebook.github.io/jsx/)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-// #[serde(tag = "type")]
+#[serde(tag = "type")]
 pub enum Expression {
     /// An identifier can also be a primary expression.
     Identifier {
@@ -245,27 +245,50 @@ pub enum Expression {
         /// This is true if the rhs was written with `[]` notation.
         computed: bool,
     },
-    /// Super is the `super` keyword, similar to the `this` keyword.
-    Super,
-    /// This is the `new.target` expression that was introduced in ES2015. This
-    /// tells you if the function was called with the `new` operator.
-    MetaProperty,
-    /// This is the `new MemberExpression` expression. It will construct the callee
-    /// and return an object.
-    New {
-        /// The callee is the function we are trying to construct.
-        callee: Box<Expression>,
-        /// The arguments is a list of parameters to the function we're trying to construct.
-        arguments: Vec<Expression>,
+    /// The ternary operator. This is of the form (test ? alternate : consequent)
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-conditional-operator)
+    ConditionalExpression {
+        /// The expression before the ?. This must evaluate to a truthy or falsy value.
+        test: Box<Expression>,
+        /// The expression returned if the test expression is truthy.
+        alternate: Box<Expression>,
+        /// The expression returned if the test expression is falsy.
+        consequent: Box<Expression>,
     },
     /// This is a regular function call, eg. `myFunction(expr1, expr2)`
-    Call {
+    CallExpression {
         /// The callee is the function we're trying to call. It may be an IIFE (immediately
         /// invoked function expression) or any other dynamic function.
         callee: Box<Expression>,
         /// The list of parameters to pass to the function.
         arguments: Vec<Expression>,
     },
+    /// This is the `new MemberExpression` expression. It will construct the callee
+    /// and return an object.
+    NewExpression {
+        /// The callee is the function we are trying to construct.
+        callee: Box<Expression>,
+        /// The arguments is a list of parameters to the function we're trying to construct.
+        arguments: Vec<Expression>,
+    },
+    /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
+    /// throw it away, and return the second operand.
+    ///
+    /// For a list of operands, it will evaluate all operands, throw them away, and then
+    /// finally return the last operand.
+    ///
+    /// This is mainly useful for side effects, eg. (console.log(expr), expr).
+    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
+    SequenceExpression {
+        /// This is the list of expressions separated by a comma.
+        expressions: Vec<Expression>,
+    },
+
+    /// Super is the `super` keyword, similar to the `this` keyword.
+    Super,
+    /// This is the `new.target` expression that was introduced in ES2015. This
+    /// tells you if the function was called with the `new` operator.
+    MetaProperty,
     /// This is an expression where we pass the elements of the template literal to the
     /// tag function.
     ///
@@ -284,25 +307,6 @@ pub enum Expression {
         /// AST.
         quasi: Box<Expression>,
     },
-    /// The ternary operator. This is of the form (test ? alternate : consequent)
-    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-conditional-operator)
-    Conditional {
-        /// The expression before the ?. This must evaluate to a truthy or falsy value.
-        test: Box<Expression>,
-        /// The expression returned if the test expression is truthy.
-        alternate: Box<Expression>,
-        /// The expression returned if the test expression is falsy.
-        consequent: Box<Expression>,
-    },
-    /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
-    /// throw it away, and return the second operand.
-    ///
-    /// For a list of operands, it will evaluate all operands, throw them away, and then
-    /// finally return the last operand.
-    ///
-    /// This is mainly useful for side effects, eg. (console.log(expr), expr).
-    /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comma-operator)
-    Comma(Vec<Expression>),
     // ArrowFunctionExpression
     /// The yield expression that is only valid inside a generator function.
     /// It is a syntax error if there is a yield expression in the body of a non generator
@@ -336,7 +340,7 @@ pub enum Expression {
     /// The JsxElement is an inlined expression of the form:
     /// <name key={value}>
     /// The JsxElement must be matched by a closing element, or else it is a syntax error.
-    JsxElement {
+    JsxElementExpression {
         /// The name of the element to construct.
         name: String,
         /// The key={value} pairs.
@@ -349,7 +353,12 @@ pub enum Expression {
     ///*NOTE*: This is an extension to the language proposed by facebook.
     /// This is an anonymous JsxElement, used when you want to return an array of
     /// elements without actually wrapping things into an unneeded DOM element.
-    JsxFragment(Option<SourceLocation>, Vec<Expression>),
+    JsxFragment {
+        /// The child expressions of the fragment
+        children: Vec<Expression>,
+        /// The source location in code
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// A pattern is any way you can destructure an object or array.

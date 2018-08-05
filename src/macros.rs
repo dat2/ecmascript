@@ -61,7 +61,7 @@ macro_rules! build_ast {
         Expression::This(None)
     };
     (id $id:expr) => {
-        Expression::Identifier($id)
+        Expression::Identifier{ name: $id, loc: None, }
     };
     (null) => {
         Expression::Literal {
@@ -106,7 +106,7 @@ macro_rules! build_ast {
         ExpressionListItem::Spread(None, build_ast!($($expression)+))
     };
     (object [$($properties:tt),*]) => {
-        Expression::ObjectLiteral {
+        Expression::ObjectExpression {
             loc: None,
             properties: vec![$(build_ast!($properties)),*]
         }
@@ -116,7 +116,10 @@ macro_rules! build_ast {
             key: build_ast!($($key)+),
             value: build_ast!($($value)+),
             kind: PropertyKind::Init,
-            is_spread: false
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
         }
     };
     (get [$($key:tt)+] [$($value:tt)+]) => {
@@ -124,7 +127,10 @@ macro_rules! build_ast {
             key: build_ast!($($key)+),
             value: build_ast!($($value)+),
             kind: PropertyKind::Get,
-            is_spread: false
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
         }
     };
     (set [$($key:tt)+] [$($value:tt)+]) => {
@@ -132,11 +138,14 @@ macro_rules! build_ast {
             key: build_ast!($($key)+),
             value: build_ast!($($value)+),
             kind: PropertyKind::Set,
-            is_spread: false
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
         }
     };
     (function [$($params:tt),*] [$($body:tt),*]) => {
-        Expression::Function {
+        Expression::FunctionExpression {
             id: None,
             params: vec![$(build_ast!($params)),*],
             body: vec![$(build_ast!($body)),*],
@@ -145,7 +154,7 @@ macro_rules! build_ast {
         }
     };
     (function * [$($params:tt),*] [$($body:tt),*]) => {
-        Expression::Function {
+        Expression::FunctionExpression {
             id: None,
             params: vec![$(build_ast!($params)),*],
             body: vec![$(build_ast!($body)),*],
@@ -154,7 +163,7 @@ macro_rules! build_ast {
         }
     };
     (async function [$($params:tt),*] [$($body:tt),*]) => {
-        Expression::Function {
+        Expression::FunctionExpression {
             id: None,
             params: vec![$(build_ast!($params)),*],
             body: vec![$(build_ast!($body)),*],
@@ -163,7 +172,7 @@ macro_rules! build_ast {
         }
     };
     (async function * [$($params:tt),*] [$($body:tt),*]) => {
-        Expression::Function {
+        Expression::FunctionExpression {
             id: None,
             params: vec![$(build_ast!($params)),*],
             body: vec![$(build_ast!($body)),*],
@@ -172,7 +181,7 @@ macro_rules! build_ast {
         }
     };
     (function [$($params:tt),*] {$body:expr}) => {
-        Expression::Function {
+        Expression::FunctionExpression {
             id: None,
             params: vec![$(build_ast!($params)),*],
             body: $body,
@@ -181,7 +190,7 @@ macro_rules! build_ast {
         }
     };
     (p_id $id:expr) => {
-        Pattern::Identifier($id)
+        Pattern::Identifier(Identifier(None, $id))
     };
    // whole bunch of other stuff between
     (call [$($id:tt)+] [$($args:tt)+]) => {
@@ -198,7 +207,7 @@ macro_rules! build_ast {
     };
     // JSX
     (<$id:ident />) => {
-        Expression::JsxElement {
+        Expression::JsxElementExpression {
             name: stringify!($id).to_string(),
             attributes: Vec::new(),
             children: Vec::new(),

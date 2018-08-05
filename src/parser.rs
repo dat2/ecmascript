@@ -793,7 +793,7 @@ fn jsx_self_closing_element<'a>(
         position(),
         between(token('<'), string("/>"), identifier()),
         position(),
-    ).map(|(start, name, end)| Expression::JsxElement {
+    ).map(|(start, name, end)| Expression::JsxElementExpression {
         name,
         attributes: Vec::new(),
         children: Vec::new(),
@@ -811,7 +811,7 @@ fn jsx_matched_element<'a>(
         position(),
     ).then(|(start, opening_name, _, closing_name, end)| {
         if opening_name == closing_name {
-            value(Expression::JsxElement {
+            value(Expression::JsxElementExpression {
                 name: opening_name,
                 attributes: Vec::new(),
                 children: Vec::new(),
@@ -819,7 +819,7 @@ fn jsx_matched_element<'a>(
             }).left()
         } else {
             unexpected("closing element")
-                .map(|_| Expression::JsxElement {
+                .map(|_| Expression::JsxElementExpression {
                     name: String::new(),
                     attributes: Vec::new(),
                     children: Vec::new(),

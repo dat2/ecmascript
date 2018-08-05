@@ -767,18 +767,32 @@ fn test_object_literal_initializer_computed() {
     );
 }
 
-/*
 #[test]
 fn test_object_literal_method_definition() {
     assert_parse_success!(
         primary_expression,
         "{ method() {  } }",
-        Ok((
-            build_ast!(object [
-                [[id "method".to_string()]: [function [] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "method".to_string(),
+                    loc: Some(((1, 2), (1, 8)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![],
+                    body: vec![],
+                    async: false,
+                    generator: false,
+                },
+                kind: PropertyKind::Init,
+                method: true,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 2), (1, 15)).into()),
+            }],
+            loc: Some(((1, 0), (1, 17)).into()),
+        }
     );
 }
 
@@ -787,12 +801,27 @@ fn test_object_literal_method_definition_generator() {
     assert_parse_success!(
         primary_expression,
         "{ * method() {  } }",
-        Ok((
-            build_ast!(object [
-                [[id "method".to_string()]: [function * [] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "method".to_string(),
+                    loc: Some(((1, 4), (1, 10)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![],
+                    body: vec![],
+                    async: false,
+                    generator: true,
+                },
+                kind: PropertyKind::Init,
+                method: true,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 4), (1, 17)).into()),
+            }],
+            loc: Some(((1, 0), (1, 19)).into()),
+        }
     );
 }
 
@@ -801,12 +830,27 @@ fn test_object_literal_method_definition_async() {
     assert_parse_success!(
         primary_expression,
         "{ async method() {  } }",
-        Ok((
-            build_ast!(object [
-                [[id "method".to_string()]: [async function [] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "method".to_string(),
+                    loc: Some(((1, 8), (1, 14)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![],
+                    body: vec![],
+                    async: true,
+                    generator: false,
+                },
+                kind: PropertyKind::Init,
+                method: true,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 8), (1, 21)).into()),
+            }],
+            loc: Some(((1, 0), (1, 23)).into()),
+        }
     );
 }
 
@@ -815,12 +859,27 @@ fn test_object_literal_method_definition_async_generator() {
     assert_parse_success!(
         primary_expression,
         "{ async * method() {  } }",
-        Ok((
-            build_ast!(object [
-                [[id "method".to_string()]: [async function * [] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "method".to_string(),
+                    loc: Some(((1, 10), (1, 16)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![],
+                    body: vec![],
+                    async: true,
+                    generator: true,
+                },
+                kind: PropertyKind::Init,
+                method: true,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 10), (1, 23)).into()),
+            }],
+            loc: Some(((1, 0), (1, 25)).into()),
+        }
     );
 }
 
@@ -829,12 +888,27 @@ fn test_object_literal_method_definition_getter() {
     assert_parse_success!(
         primary_expression,
         "{ get key() {  } }",
-        Ok((
-            build_ast!(object [
-                [get [id "key".to_string()] [function [] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "key".to_string(),
+                    loc: Some(((1, 6), (1, 9)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![],
+                    body: vec![],
+                    async: false,
+                    generator: false,
+                },
+                kind: PropertyKind::Get,
+                method: false,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 2), (1, 16)).into()),
+            }],
+            loc: Some(((1, 0), (1, 18)).into()),
+        }
     );
 }
 
@@ -843,22 +917,39 @@ fn test_object_literal_method_definition_setter() {
     assert_parse_success!(
         primary_expression,
         "{ set key(value) {  } }",
-        Ok((
-            build_ast!(object [
-                [set [id "key".to_string()] [function [[p_id "value".to_string()]] []]]
-            ]),
-            ""
-        ))
+        Expression::ObjectExpression {
+            properties: vec![Property {
+                key: Expression::Identifier {
+                    name: "key".to_string(),
+                    loc: Some(((1, 6), (1, 9)).into()),
+                },
+                value: Expression::FunctionExpression {
+                    id: None,
+                    params: vec![Pattern::Identifier(Identifier(
+                        Some(((1, 10), (1, 15)).into()),
+                        "value".to_string(),
+                    ))],
+                    body: vec![],
+                    async: false,
+                    generator: false,
+                },
+                kind: PropertyKind::Set,
+                method: false,
+                shorthand: false,
+                computed: false,
+                loc: Some(((1, 2), (1, 21)).into()),
+            }],
+            loc: Some(((1, 0), (1, 23)).into()),
+        }
     );
 }
-*/
 
 #[test]
 fn test_primary_expression_jsx_self_closing() {
     assert_parse_success!(
         primary_expression,
         "<div/>",
-        Expression::JsxElement {
+        Expression::JsxElementExpression {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
@@ -872,7 +963,7 @@ fn test_primary_expression_jsx_opening_closing_match() {
     assert_parse_success!(
         primary_expression,
         "<div>\n\n</div>",
-        Expression::JsxElement {
+        Expression::JsxElementExpression {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
