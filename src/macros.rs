@@ -8,10 +8,10 @@
 /// # use ecmascript::ast::*;
 /// let my_wrapper_func = build_ast! {
 ///   [array [
-///       [true],
-///       [false],
-///       [null],
-///       [...[array [ [num 1f64] ]]]
+///       [array_item true],
+///       [array_item false],
+///       [array_item null],
+///       [...[array [ [array_item num 1f64] ]]]
 ///    ]]
 /// };
 /// ```
@@ -33,15 +33,17 @@ macro_rules! build_ast {
     };
     // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar-literals
     (regex_lit /{$pattern:expr}/{$flags:expr}) => {
-        RegexLiteral {
+        RegExpLiteral {
             pattern: $pattern,
             flags: $flags,
+            loc: None,
         }
     };
     (regex_lit /{$pattern:expr}/) => {
-        RegexLiteral {
+        RegExpLiteral {
             pattern: $pattern,
             flags: String::new(),
+            loc: None,
         }
     };
     (templ_el {$cooked:expr}) => {
@@ -51,56 +53,146 @@ macro_rules! build_ast {
         TemplateElement {
             cooked: $cooked,
             raw: $raw,
+            loc: None,
         }
     };
     // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
     (this) => {
-        Expression::This
+        Expression::This(None)
     };
     (id $id:expr) => {
-        Expression::IdReference($id)
+        Expression::Identifier{ name: $id, loc: None, }
     };
     (null) => {
-        Expression::Literal(ExpressionLiteral::NullLiteral(NullLiteral))
+        Expression::Literal {
+            value: Literal::NullLiteral(NullLiteral),
+            loc: None
+        }
     };
     (true) => {
-        Expression::Literal(ExpressionLiteral::BooleanLiteral(true))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(true)),
+            loc: None
+        }
     };
     (false) => {
-        Expression::Literal(ExpressionLiteral::BooleanLiteral(false))
+        Expression::Literal {
+            value: Literal::BooleanLiteral(BooleanLiteral(false)),
+            loc: None
+        }
     };
     (num $lit:expr) => {
-        Expression::Literal(ExpressionLiteral::NumberLiteral($lit))
+        Expression::Literal {
+            value: Literal::NumericLiteral(NumericLiteral($lit)),
+            loc: None
+        }
     };
     (str $lit:expr) => {
-        Expression::Literal(ExpressionLiteral::StringLiteral($lit))
+        Expression::Literal {
+            value: Literal::StringLiteral(StringLiteral($lit)),
+            loc: None
+        }
     };
     (array [$($elements:tt),*]) => {
-        Expression::ArrayLiteral(vec![$(build_ast!($elements)),*])
+        Expression::ArrayExpression {
+            loc: None,
+            elements: vec![$(build_ast!($elements)),*]
+        }
     };
-    (obj [$($properties:tt),+]) => {
-        Expression::ObjectLiteral(vec![$(build_ast!($params)),+])
+    (array_item $($expression:tt)+) => {
+        ExpressionListItem::Expression(build_ast!($($expression)+))
+    };
+    (...$($expression:tt)+) => {
+        ExpressionListItem::Spread(None, build_ast!($($expression)+))
+    };
+    (object [$($properties:tt),*]) => {
+        Expression::ObjectExpression {
+            loc: None,
+            properties: vec![$(build_ast!($properties)),*]
+        }
     };
     ([$($key:tt)+]: [$($value:tt)+]) => {
         Property {
             key: build_ast!($($key)+),
             value: build_ast!($($value)+),
             kind: PropertyKind::Init,
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
         }
     };
-    (function [$($params:tt),+] {$body:expr}) => {
-        Expression::Function {
+    (get [$($key:tt)+] [$($value:tt)+]) => {
+        Property {
+            key: build_ast!($($key)+),
+            value: build_ast!($($value)+),
+            kind: PropertyKind::Get,
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
+        }
+    };
+    (set [$($key:tt)+] [$($value:tt)+]) => {
+        Property {
+            key: build_ast!($($key)+),
+            value: build_ast!($($value)+),
+            kind: PropertyKind::Set,
+            computed: false,
+            method: false,
+            shorthand: false,
+            loc: None,
+        }
+    };
+    (function [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::FunctionExpression {
             id: None,
-            params: vec![$(build_ast!($params)),+],
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: false,
+            async: false
+        }
+    };
+    (function * [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::FunctionExpression {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: true,
+            async: false
+        }
+    };
+    (async function [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::FunctionExpression {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: false,
+            async: true
+        }
+    };
+    (async function * [$($params:tt),*] [$($body:tt),*]) => {
+        Expression::FunctionExpression {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
+            body: vec![$(build_ast!($body)),*],
+            generator: true,
+            async: true
+        }
+    };
+    (function [$($params:tt),*] {$body:expr}) => {
+        Expression::FunctionExpression {
+            id: None,
+            params: vec![$(build_ast!($params)),*],
             body: $body,
             generator: false,
             async: false
         }
     };
-    (...[$($expression:tt)+]) => {
-        Expression::Spread(Box::new(build_ast!($($expression)+)))
+    (p_id $id:expr) => {
+        Pattern::Identifier(Identifier(None, $id))
     };
-    // whole bunch of other stuff between
+   // whole bunch of other stuff between
     (call [$($id:tt)+] [$($args:tt)+]) => {
         Expression::Call {
             callee: Box::new(build_ast!($($id)+)),
@@ -115,10 +207,11 @@ macro_rules! build_ast {
     };
     // JSX
     (<$id:ident />) => {
-        Expression::JsxElement {
+        Expression::JsxElementExpression {
             name: stringify!($id).to_string(),
             attributes: Vec::new(),
-            children: Vec::new()
+            children: Vec::new(),
+            loc: None
         }
     };
         /*

@@ -54,15 +54,15 @@ Docs are hosted on [docs.rs](https://docs.rs/ecmascript/).
 on it. For example, concatenating modules together, uglifying the variable names,
 pretty printing uglified code, etc.
 
-# Features
+# Features (Planned)
 
-* _ECMAScript 2017 v9.0 support_
+* _ECMAScript 2017 v9.0 support_ (WIP)
   * We are actively developing this library to be up to date!
-* _JSX Extended Support_
+* _JSX Extended Support_ (WIP)
   * JSX is meant to be an additive extension to the language
-* _AST Pretty Printer_
+* _AST Pretty Printer_ (WIP)
   * This supports minification options, such as 0 whitespace
-* _AST rewrite rules_
+* _AST rewrite rules_ (WIP)
   * Eg. Constant folding, translating to older versions of the language, etc.
 
 # Testing
