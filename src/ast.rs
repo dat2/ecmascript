@@ -185,7 +185,7 @@ pub enum Expression {
         generator: bool,
     },
     /// A unary expression is a unary operator in prefix position to the operand.
-    Unary {
+    UnaryExpression {
         /// The operator is one that can only take a single operand.
         operator: UnaryOperator,
         /// This is just for estree.
@@ -193,14 +193,55 @@ pub enum Expression {
         /// The expression is the operand that is passed to the operator.
         argument: Box<Expression>,
     },
+    /// An update expression is either a postfix or prefix, increment or decrement, operator
+    /// applied to an operand.
+    UpdateExpression {
+        /// The operator is either ++ or --
+        operator: UpdateOperator,
+        /// The argument is another expression, eg. (++(a))
+        argument: Box<Expression>,
+        /// This tells you if the operator is in prefix or postfix position.
+        prefix: bool,
+    },
+    /// The binary expression is one of the form (lhs operand rhs).
+    BinaryExpression {
+        /// The operand that is infixed between the operands.
+        operator: BinaryOperator,
+        /// The left hand side.
+        left: Box<Expression>,
+        /// The right hand side.
+        right: Box<Expression>,
+    },
+    /// An assignment operator is one of the form (lhs assigned rhs). This changes the left hand
+    /// side of the expression by applying an operator to the right hand side and the left hand
+    /// side to get the new value of the left hand side.
+    AssignmentExpression {
+        /// The operator that is between the operands. This is slightly different to the binary
+        /// expression, as it changes the LHS. The binary operators will return a new value
+        /// instead of changing the left hand side.
+        operator: AssignmentOperator,
+        /// The expression that gets changed in some way. eg. (id = some_new_value)
+        left: Box<Expression>,
+        /// The expression that changes the lhs.
+        right: Box<Expression>,
+    },
+    /// The logical expression is a binary expression for logical operators only
+    LogicalExpression {
+        /// The operand that is infixed between the operands.
+        operator: LogicalOperator,
+        /// The left hand side.
+        left: Box<Expression>,
+        /// The right hand side.
+        right: Box<Expression>,
+    },
     /// A member expression is a property access expression.
     /// Eg. `obj.key` or `obj[computed_key]`
-    Member {
-        /// The lhs is the object we're trying to access.
-        lhs: Box<Expression>,
-        /// The rhs is the key we're trying to access. It can be computed, or a basic
+    MemberExpression {
+        /// The object we're trying to access.
+        object: Box<Expression>,
+        /// The property we're trying to access. It can be computed, or a basic
         /// IdReference.
-        rhs: Box<Expression>,
+        property: Box<Expression>,
         /// This is true if the rhs was written with `[]` notation.
         computed: bool,
     },
@@ -243,25 +284,6 @@ pub enum Expression {
         /// AST.
         quasi: Box<Expression>,
     },
-    /// An update expression is either a postfix or prefix, increment or decrement, operator
-    /// applied to an operand.
-    Update {
-        /// The operator is either ++ or --
-        operator: UpdateOperator,
-        /// The argument is another expression, eg. (++(a))
-        argument: Box<Expression>,
-        /// This tells you if the operator is in prefix or postfix position.
-        prefix: bool,
-    },
-    /// The binary expression is one of the form (lhs operand rhs).
-    Binary {
-        /// The operand that is infixed between the operands.
-        operator: BinaryOperator,
-        /// The left hand side.
-        lhs: Box<Expression>,
-        /// The right hand side.
-        rhs: Box<Expression>,
-    },
     /// The ternary operator. This is of the form (test ? alternate : consequent)
     /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-conditional-operator)
     Conditional {
@@ -271,19 +293,6 @@ pub enum Expression {
         alternate: Box<Expression>,
         /// The expression returned if the test expression is falsy.
         consequent: Box<Expression>,
-    },
-    /// An assignment operator is one of the form (lhs assigned rhs). This changes the left hand
-    /// side of the expression by applying an operator to the right hand side and the left hand
-    /// side to get the new value of the left hand side.
-    Assignment {
-        /// The operator that is between the operands. This is slightly different to the binary
-        /// expression, as it changes the LHS. The binary operators will return a new value
-        /// instead of changing the left hand side.
-        operator: AssignmentOperator,
-        /// The expression that gets changed in some way. eg. (id = some_new_value)
-        lhs: Box<Expression>,
-        /// The expression that changes the lhs.
-        rhs: Box<Expression>,
     },
     /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
     /// throw it away, and return the second operand.
@@ -578,6 +587,20 @@ pub enum AssignmentOperator {
     BitwiseXorEq,
     /// This is shorthand for `lhs = lhs & rhs`. (eg a &= 5).
     BitwiseAndEq,
+}
+
+/// All the operators that have 2 arguments are merged into one big enum here for simplicity
+/// sake.
+///
+/// - [Logical Operators](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-binary-logical-operators)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum LogicalOperator {
+    /// The logical or operator. This works on boolean values rather than numbers.
+    /// (eg true || false is true)
+    Or,
+    /// The logical and operator. This works on boolean values instead of numbers.
+    /// (eg true && false is false)
+    And,
 }
 
 /// A JSX attribute is either a simple `key={value}` attribute, or a
