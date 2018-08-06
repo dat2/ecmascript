@@ -68,7 +68,8 @@ fn line_comment<'a>(
         string("//"),
         skip_until(line_terminator()),
         line_terminator(),
-    ).map(|_| ())
+    )
+        .map(|_| ())
 }
 
 fn skip_tokens<'a>(
@@ -179,7 +180,8 @@ lazy_static! {
             "while",
             "with",
             "yield",
-        ].iter()
+        ]
+            .iter()
             .cloned()
             .collect()
     };
@@ -193,7 +195,8 @@ lazy_static! {
             "interface",
             "public",
             "private",
-        ].iter()
+        ]
+            .iter()
             .cloned()
             .collect()
     };
@@ -234,15 +237,15 @@ fn decimal_literal<'a>(
                 .map(|(c, s): (char, String)| c.to_string() + &s),
         ),
         optional(exponent_part()),
-    ).then(|tuple| match tuple {
+    )
+        .then(|tuple| match tuple {
             (None, None, None) => unexpected("empty").map(|_| String::new()).left(),
             (literal_opt, digits_opt, exponent_opt) => value(
                 literal_opt.unwrap_or_else(String::new)
                     + &digits_opt.unwrap_or_else(String::new)
                     + &exponent_opt.unwrap_or_else(String::new),
             ).right(),
-        })
-        .map(|s| s.parse::<f64>().unwrap())
+        }).map(|s| s.parse::<f64>().unwrap())
 }
 
 fn decimal_integer_literal<'a>(
@@ -260,12 +263,13 @@ fn exponent_part<'a>(
         token('e').or(token('E')),
         optional(token('-').or(token('+'))),
         many1::<String, _>(digit()),
-    ).map(
-        |(e, sign_opt, digits): (char, Option<char>, String)| match sign_opt {
-            Some(sign) => e.to_string() + &sign.to_string() + &digits,
-            None => e.to_string() + &digits,
-        },
     )
+        .map(
+            |(e, sign_opt, digits): (char, Option<char>, String)| match sign_opt {
+                Some(sign) => e.to_string() + &sign.to_string() + &digits,
+                None => e.to_string() + &digits,
+            },
+        )
 }
 
 fn binary_integer_literal<'a>(
@@ -274,7 +278,8 @@ fn binary_integer_literal<'a>(
         token('0'),
         token('b').or(token('B')),
         many1::<String, _>(one_of("01".chars())),
-    ).map(|(_, _, digits)| i64::from_str_radix(&digits, 2).unwrap() as f64)
+    )
+        .map(|(_, _, digits)| i64::from_str_radix(&digits, 2).unwrap() as f64)
 }
 
 fn octal_integer_literal<'a>(
@@ -283,7 +288,8 @@ fn octal_integer_literal<'a>(
         token('0'),
         token('o').or(token('O')),
         many1::<String, _>(one_of("01234567".chars())),
-    ).map(|(_, _, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
+    )
+        .map(|(_, _, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
 }
 
 fn hex_integer_literal<'a>(
@@ -292,7 +298,8 @@ fn hex_integer_literal<'a>(
         token('0'),
         token('x').or(token('X')),
         many1::<String, _>(hex_digit()),
-    ).map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
+    )
+        .map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
@@ -372,8 +379,7 @@ fn non_escape_character_sequence<'a>(
     token('\\')
         .and(none_of(
             "'\"\\bfnrtv0123456789xu\r\n\u{2028}\u{2029}".chars(),
-        ))
-        .map(|(t, c)| (c, format!("{}{}", t, c)))
+        )).map(|(t, c)| (c, format!("{}{}", t, c)))
 }
 
 fn hex_escape_sequence<'a>(
@@ -397,24 +403,25 @@ fn unicode_escape_sequence<'a>(
             ),
             count::<String, _>(4, hex_digit()),
         )),
-    ).then(|(t, u, digits_raw)| {
-        let digits_cooked = if &digits_raw[0..1] == "{" {
-            &digits_raw[1..digits_raw.len() - 1]
-        } else {
-            &digits_raw[..]
-        };
-        let code_point = u32::from_str_radix(digits_cooked, 16).unwrap();
-        if code_point > 0x0010_FFFF {
-            unexpected("code point")
-                .map(|_| (' ', String::new()))
-                .message("Code point too large")
-                .right()
-        } else {
-            let cooked = ::std::char::from_u32(code_point).unwrap();
-            let raw = format!("{}{}{}", t, u, digits_raw);
-            value((cooked, raw)).left()
-        }
-    })
+    )
+        .then(|(t, u, digits_raw)| {
+            let digits_cooked = if &digits_raw[0..1] == "{" {
+                &digits_raw[1..digits_raw.len() - 1]
+            } else {
+                &digits_raw[..]
+            };
+            let code_point = u32::from_str_radix(digits_cooked, 16).unwrap();
+            if code_point > 0x0010_FFFF {
+                unexpected("code point")
+                    .map(|_| (' ', String::new()))
+                    .message("Code point too large")
+                    .right()
+            } else {
+                let cooked = ::std::char::from_u32(code_point).unwrap();
+                let raw = format!("{}{}{}", t, u, digits_raw);
+                value((cooked, raw)).left()
+            }
+        })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
@@ -431,7 +438,8 @@ pub(crate) fn regex_literal<'a>(
     (
         between(token('/'), token('/'), regex_body()),
         many::<String, _>(id_continue()),
-    ).map(|(pattern, flags)| RegExpLiteral { pattern, flags })
+    )
+        .map(|(pattern, flags)| RegExpLiteral { pattern, flags })
 }
 
 fn regex_body<'a>(
@@ -471,15 +479,30 @@ fn regex_class<'a>(
             try(regex_backslash_sequence()).or(none_of("]\\".chars()).map(|c: char| c.to_string())),
         ),
         token(']'),
-    ).map(|(open, middle, end): (char, String, char)| {
-        open.to_string() + &middle + &end.to_string()
-    })
+    )
+        .map(|(open, middle, end): (char, String, char)| {
+            open.to_string() + &middle + &end.to_string()
+        })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
-pub(crate) fn template<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    choice((try(no_substition_template()), template_head()))
+fn template_literal<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    (
+        position(),
+        choice((
+            try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
+            try(substitution_template()),
+        )),
+        position(),
+    )
+        .map(
+            |(start, (quasis, expressions), end)| Expression::TemplateLiteral {
+                quasis,
+                expressions,
+                loc: Some((start, end).into()),
+            },
+        )
 }
 
 fn no_substition_template<'a>(
@@ -492,15 +515,31 @@ fn no_substition_template<'a>(
             many::<Vec<_>, _>(template_character()),
         ),
         position(),
-    ).map(|(start, pairs, end)| {
-        let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-        let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement {
-            cooked,
-            raw,
-            loc: Some((start, end).into()),
-        }
-    })
+    )
+        .map(|(start, pairs, end)| {
+            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+            let raw = pairs.iter().cloned().map(|x| x.1).collect();
+            TemplateElement {
+                cooked,
+                raw,
+                loc: Some((start, end).into()),
+            }
+        })
+}
+
+fn substitution_template<'a>() -> impl Parser<
+    Input = easy::Stream<State<&'a str, SourcePosition>>,
+    Output = (Vec<TemplateElement>, Vec<Expression>),
+> {
+    (template_head(), assignment_expression(), template_spans()).map(
+        |(quasi, expression, (mut quasis_span, mut expressions_span))| {
+            let mut quasis = vec![quasi];
+            quasis.append(&mut quasis_span);
+            let mut expressions = vec![expression];
+            expressions.append(&mut expressions_span);
+            (quasis, expressions)
+        },
+    )
 }
 
 fn template_head<'a>(
@@ -513,15 +552,36 @@ fn template_head<'a>(
             many::<Vec<_>, _>(template_character()),
         ),
         position(),
-    ).map(|(start, pairs, end)| {
-        let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-        let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement {
-            cooked,
-            raw,
-            loc: Some((start, end).into()),
-        }
-    })
+    )
+        .map(|(start, pairs, end)| {
+            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+            let raw = pairs.iter().cloned().map(|x| x.1).collect();
+            TemplateElement {
+                cooked,
+                raw,
+                loc: Some((start, end).into()),
+            }
+        })
+}
+
+fn template_spans<'a>() -> impl Parser<
+    Input = easy::Stream<State<&'a str, SourcePosition>>,
+    Output = (Vec<TemplateElement>, Vec<Expression>),
+> {
+    (
+        many::<Vec<_>, _>(try((template_middle(), assignment_expression()))),
+        template_tail(),
+    )
+        .map(|(quasis_expressions, tail)| {
+            let mut quasis = Vec::new();
+            let mut expressions = Vec::new();
+            for (quasi, expression) in quasis_expressions {
+                quasis.push(quasi);
+                expressions.push(expression);
+            }
+            quasis.push(tail);
+            (quasis, expressions)
+        })
 }
 
 pub(crate) fn template_character<'a>(
@@ -534,11 +594,6 @@ pub(crate) fn template_character<'a>(
     ))
 }
 
-pub(crate) fn template_substition_tail<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    choice((try(template_middle()), template_tail()))
-}
-
 fn template_middle<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
@@ -549,32 +604,38 @@ fn template_middle<'a>(
             many::<Vec<_>, _>(template_character()),
         ),
         position(),
-    ).map(|(start, pairs, end)| {
-        let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-        let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement {
-            cooked,
-            raw,
-            loc: Some((start, end).into()),
-        }
-    })
+    )
+        .map(|(start, pairs, end)| {
+            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+            let raw = pairs.iter().cloned().map(|x| x.1).collect();
+            TemplateElement {
+                cooked,
+                raw,
+                loc: Some((start, end).into()),
+            }
+        })
 }
 
 fn template_tail<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
     (
         position(),
-        token('}').with(many::<Vec<_>, _>(template_character())),
+        between(
+            token('}'),
+            token('`'),
+            many::<Vec<_>, _>(template_character()),
+        ),
         position(),
-    ).map(|(start, pairs, end)| {
-        let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-        let raw = pairs.iter().cloned().map(|x| x.1).collect();
-        TemplateElement {
-            cooked,
-            raw,
-            loc: Some((start, end).into()),
-        }
-    })
+    )
+        .map(|(start, pairs, end)| {
+            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+            let raw = pairs.iter().cloned().map(|x| x.1).collect();
+            TemplateElement {
+                cooked,
+                raw,
+                loc: Some((start, end).into()),
+            }
+        })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
@@ -587,6 +648,7 @@ pub(crate) fn primary_expression<'a>(
         try(array_literal()),
         try(object_literal()),
         try(regex_literal_expression()),
+        try(template_literal()),
         jsx_element(),
     ))
 }
@@ -617,10 +679,11 @@ fn literal<'a>(
             try(string_literal()).map(Literal::StringLiteral),
         )),
         position(),
-    ).map(|(start, value, end)| Expression::Literal {
-        value,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, value, end)| Expression::Literal {
+            value,
+            loc: Some((start, end).into()),
+        })
 }
 
 fn array_literal<'a>(
@@ -633,10 +696,11 @@ fn array_literal<'a>(
             elision().with(element_list()).skip(elision()),
         ),
         position(),
-    ).map(|(start, elements, end)| Expression::ArrayExpression {
-        elements,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, elements, end)| Expression::ArrayExpression {
+            elements,
+            loc: Some((start, end).into()),
+        })
 }
 
 fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
@@ -667,10 +731,11 @@ fn object_literal<'a>(
             ),
         ),
         position(),
-    ).map(|(start, properties, end)| Expression::ObjectExpression {
-        loc: Some((start, end).into()),
-        properties,
-    })
+    )
+        .map(|(start, properties, end)| Expression::ObjectExpression {
+            loc: Some((start, end).into()),
+            properties,
+        })
 }
 
 fn property_definition<'a>(
@@ -705,15 +770,16 @@ fn property_initializer<'a>(
         skip_tokens(),
         literal(),
         position(),
-    ).map(|(start, (key, computed), _, _, _, value, end)| Property {
-        key,
-        value,
-        kind: PropertyKind::Init,
-        method: false,
-        shorthand: false,
-        computed,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, (key, computed), _, _, _, value, end)| Property {
+            key,
+            value,
+            kind: PropertyKind::Init,
+            method: false,
+            shorthand: false,
+            computed,
+            loc: Some((start, end).into()),
+        })
 }
 
 fn property_name<'a>(
@@ -758,9 +824,10 @@ fn spread_element<'a>(
         position(),
         string("...").with(assignment_expression()),
         position(),
-    ).map(|(start, expression, end)| {
-        ExpressionListItem::Spread(Some((start, end).into()), expression)
-    })
+    )
+        .map(|(start, expression, end)| {
+            ExpressionListItem::Spread(Some((start, end).into()), expression)
+        })
 }
 
 fn assignment_expression<'a>(
@@ -775,10 +842,11 @@ fn yield_expression<'a>(
         skip_tokens(),
         // optional((optional(token('*')), ok())),
         skip_tokens(),
-    ).map(|(_, _, _)| Expression::Yield {
-        argument: None,
-        delegate: false,
-    })
+    )
+        .map(|(_, _, _)| Expression::Yield {
+            argument: None,
+            delegate: false,
+        })
 }
 
 // https://facebook.github.io/jsx/
@@ -793,12 +861,13 @@ fn jsx_self_closing_element<'a>(
         position(),
         between(token('<'), string("/>"), identifier()),
         position(),
-    ).map(|(start, name, end)| Expression::JsxElementExpression {
-        name,
-        attributes: Vec::new(),
-        children: Vec::new(),
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, name, end)| Expression::JsxElementExpression {
+            name,
+            attributes: Vec::new(),
+            children: Vec::new(),
+            loc: Some((start, end).into()),
+        })
 }
 
 fn jsx_matched_element<'a>(
@@ -809,26 +878,26 @@ fn jsx_matched_element<'a>(
         skip_tokens(),
         between(string("</"), token('>'), identifier()),
         position(),
-    ).then(|(start, opening_name, _, closing_name, end)| {
-        if opening_name == closing_name {
-            value(Expression::JsxElementExpression {
-                name: opening_name,
-                attributes: Vec::new(),
-                children: Vec::new(),
-                loc: Some((start, end).into()),
-            }).left()
-        } else {
-            unexpected("closing element")
-                .map(|_| Expression::JsxElementExpression {
-                    name: String::new(),
+    )
+        .then(|(start, opening_name, _, closing_name, end)| {
+            if opening_name == closing_name {
+                value(Expression::JsxElementExpression {
+                    name: opening_name,
                     attributes: Vec::new(),
                     children: Vec::new(),
-                    loc: None,
-                })
-                .message("closing name is not the same as opening name")
-                .right()
-        }
-    })
+                    loc: Some((start, end).into()),
+                }).left()
+            } else {
+                unexpected("closing element")
+                    .map(|_| Expression::JsxElementExpression {
+                        name: String::new(),
+                        attributes: Vec::new(),
+                        children: Vec::new(),
+                        loc: None,
+                    }).message("closing name is not the same as opening name")
+                    .right()
+            }
+        })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
@@ -864,7 +933,7 @@ fn formal_parameter<'a>(
 fn function_body<'a>(
     _yield: bool,
     _await: bool,
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Statement>> {
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<FunctionBodyStatement>> {
     between(
         token('{').skip(skip_tokens()),
         token('}'),
@@ -900,23 +969,24 @@ fn basic_method_definition<'a>(
         value(_yield),
         value(_await),
         position(),
-    ).map(
-        |(start, (key, computed), _, params, _, body, _yield, _await, end)| Property {
-            key,
-            value: Expression::FunctionExpression {
-                id: None,
-                async: _await,
-                generator: _yield,
-                body,
-                params,
-            },
-            kind: PropertyKind::Init,
-            method: true,
-            shorthand: false,
-            computed,
-            loc: Some((start, end).into()),
-        },
     )
+        .map(
+            |(start, (key, computed), _, params, _, body, _yield, _await, end)| Property {
+                key,
+                value: Expression::FunctionExpression {
+                    id: None,
+                    async: _await,
+                    generator: _yield,
+                    body,
+                    params,
+                },
+                kind: PropertyKind::Init,
+                method: true,
+                shorthand: false,
+                computed,
+                loc: Some((start, end).into()),
+            },
+        )
 }
 
 fn generator_method_definition<'a>(
@@ -925,7 +995,8 @@ fn generator_method_definition<'a>(
         token('*'),
         skip_tokens(),
         basic_method_definition(true, false),
-    ).map(|x| x.2)
+    )
+        .map(|x| x.2)
 }
 
 fn async_method_definition<'a>(
@@ -934,7 +1005,8 @@ fn async_method_definition<'a>(
         string("async"),
         skip_tokens(),
         basic_method_definition(false, true),
-    ).map(|x| x.2)
+    )
+        .map(|x| x.2)
 }
 
 fn async_generator_method_definition<'a>(
@@ -945,7 +1017,8 @@ fn async_generator_method_definition<'a>(
         token('*'),
         skip_tokens(),
         basic_method_definition(true, true),
-    ).map(|x| x.4)
+    )
+        .map(|x| x.4)
 }
 
 fn getter_method_definition<'a>(
@@ -958,21 +1031,22 @@ fn getter_method_definition<'a>(
         token(')').skip(skip_tokens()),
         function_body(false, false),
         position(),
-    ).map(|(start, _, (key, computed), _, _, body, end)| Property {
-        key,
-        value: Expression::FunctionExpression {
-            id: None,
-            async: false,
-            generator: false,
-            body,
-            params: Vec::new(),
-        },
-        kind: PropertyKind::Get,
-        method: false,
-        shorthand: false,
-        computed,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, _, (key, computed), _, _, body, end)| Property {
+            key,
+            value: Expression::FunctionExpression {
+                id: None,
+                async: false,
+                generator: false,
+                body,
+                params: Vec::new(),
+            },
+            kind: PropertyKind::Get,
+            method: false,
+            shorthand: false,
+            computed,
+            loc: Some((start, end).into()),
+        })
 }
 
 fn setter_method_definition<'a>(
@@ -988,21 +1062,22 @@ fn setter_method_definition<'a>(
         ),
         function_body(false, false),
         position(),
-    ).map(|(start, _, (key, computed), param, body, end)| Property {
-        key,
-        value: Expression::FunctionExpression {
-            id: None,
-            async: false,
-            generator: false,
-            body,
-            params: vec![param],
-        },
-        kind: PropertyKind::Set,
-        method: false,
-        shorthand: false,
-        computed,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, _, (key, computed), param, body, end)| Property {
+            key,
+            value: Expression::FunctionExpression {
+                id: None,
+                async: false,
+                generator: false,
+                body,
+                params: vec![param],
+            },
+            kind: PropertyKind::Set,
+            method: false,
+            shorthand: false,
+            computed,
+            loc: Some((start, end).into()),
+        })
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
@@ -1014,11 +1089,12 @@ fn program<'a>(
         many::<Vec<_>, _>(statement().skip(skip_tokens())),
         eof(),
         position(),
-    ).map(|(start, _, body, _, end)| Program::Program {
-        source_type: SourceType::Script,
-        body,
-        loc: Some((start, end).into()),
-    })
+    )
+        .map(|(start, _, body, _, end)| Program::Program {
+            source_type: SourceType::Script,
+            body,
+            loc: Some((start, end).into()),
+        })
 }
 
 /// The main entry point to the parser. This function will return a fully constructed

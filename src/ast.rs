@@ -177,7 +177,7 @@ pub enum Expression {
         /// The formal parameters to a function.
         params: Vec<Pattern>,
         /// The body is a list of statements. This can include pragmas.
-        body: Vec<Statement>,
+        body: Vec<FunctionBodyStatement>,
         /// This is true if the function was defined with the `async` keyword before the
         /// `function` keyword.
         async: bool,
@@ -221,7 +221,7 @@ pub enum Expression {
         /// instead of changing the left hand side.
         operator: AssignmentOperator,
         /// The expression that gets changed in some way. eg. (id = some_new_value)
-        left: Box<Expression>,
+        left: Box<Pattern>,
         /// The expression that changes the lhs.
         right: Box<Expression>,
     },
@@ -238,7 +238,7 @@ pub enum Expression {
     /// Eg. `obj.key` or `obj[computed_key]`
     MemberExpression {
         /// The object we're trying to access.
-        object: Box<Expression>,
+        object: Box<SuperExpression>,
         /// The property we're trying to access. It can be computed, or a basic
         /// IdReference.
         property: Box<Expression>,
@@ -259,9 +259,9 @@ pub enum Expression {
     CallExpression {
         /// The callee is the function we're trying to call. It may be an IIFE (immediately
         /// invoked function expression) or any other dynamic function.
-        callee: Box<Expression>,
+        callee: Box<SuperExpression>,
         /// The list of parameters to pass to the function.
-        arguments: Vec<Expression>,
+        arguments: Vec<ExpressionListItem>,
     },
     /// This is the `new MemberExpression` expression. It will construct the callee
     /// and return an object.
@@ -269,7 +269,7 @@ pub enum Expression {
         /// The callee is the function we are trying to construct.
         callee: Box<Expression>,
         /// The arguments is a list of parameters to the function we're trying to construct.
-        arguments: Vec<Expression>,
+        arguments: Vec<ExpressionListItem>,
     },
     /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
     /// throw it away, and return the second operand.
@@ -283,9 +283,20 @@ pub enum Expression {
         /// This is the list of expressions separated by a comma.
         expressions: Vec<Expression>,
     },
-
-    /// Super is the `super` keyword, similar to the `this` keyword.
-    Super,
+    // ArrowFunctionExpression { body: ArrowFunctionBody, expression: bool }
+    // ArrowFunctionBody = FunctionBodyStatement | Expression
+    /// The yield expression that is only valid inside a generator function.
+    /// It is a syntax error if there is a yield expression in the body of a non generator
+    /// function.
+    Yield {
+        /// The generator may yield an expression to the caller, while requesting the caller to
+        /// give back another value.
+        argument: Option<Box<Expression>>,
+        /// If the argument is another generator function, they must delegate all their yields to
+        /// until the delegate generator completes.
+        delegate: bool, // yield *
+    },
+    // AwaitExpression { argument: Box<Expression> }
     /// This is the `new.target` expression that was introduced in ES2015. This
     /// tells you if the function was called with the `new` operator.
     MetaProperty,
@@ -300,24 +311,12 @@ pub enum Expression {
     /// tag`123 ${}`
     /// ```
     TaggedTemplate {
-        /// This is the function we're trying to pass the template elements to.
+        /// This is the function we're trying to pass the template eleme_literalnts to.
         tag: Box<Expression>,
         /// The only expression that is valid for the quasi, is another TemplateLiteral
         /// expression. In the interest of simplicity, we are not going to disallow this in the
         /// AST.
         quasi: Box<Expression>,
-    },
-    // ArrowFunctionExpression
-    /// The yield expression that is only valid inside a generator function.
-    /// It is a syntax error if there is a yield expression in the body of a non generator
-    /// function.
-    Yield {
-        /// The generator may yield an expression to the caller, while requesting the caller to
-        /// give back another value.
-        argument: Option<Box<Expression>>,
-        /// If the argument is another generator function, they must delegate all their yields to
-        /// until the delegate generator completes.
-        delegate: bool, // yield *
     },
     // Class,
     /// A Template literal expression has many template elements with expressions littered
@@ -363,6 +362,7 @@ pub enum Expression {
 
 /// A pattern is any way you can destructure an object or array.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
 pub enum ExpressionListItem {
     /// This is just a regular expression.
     Expression(Expression),
@@ -596,6 +596,9 @@ pub enum AssignmentOperator {
     BitwiseXorEq,
     /// This is shorthand for `lhs = lhs & rhs`. (eg a &= 5).
     BitwiseAndEq,
+    /// The expoentation operator. This raises the left hand operand to the power of
+    /// the right hand side. (eg 2 ** 4 is 2*2*2*2 or 16)
+    ExponentiationEq,
 }
 
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
@@ -633,6 +636,36 @@ pub enum JsxAttribute {
         /// The absence of a key can mean false.
         value: Option<Expression>,
     },
+}
+
+/// This is a super call or object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum Super {
+    /// The enum is just a hack to get "type: Super" in the estree output.
+    #[serde(rename_all = "camelCase")]
+    Super {
+        /// The location of the super call.
+        loc: Option<SourceLocation>,
+    },
+}
+
+/// This is a super call or object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum SuperExpression {
+    /// This means the expression was a super call
+    Super(Super),
+    /// This means the expression was a regular expression
+    Expression(Expression),
+}
+
+/// A function body is either a statement or a directive.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum FunctionBodyStatement {
+    /// A statement.
+    Statement(Statement),
 }
 
 /// A statement is either a declaration (var, const, let, function, export) or an

@@ -311,65 +311,98 @@ fn test_regex_literal_flags() {
 #[test]
 fn test_template_element_empty() {
     assert_parse_success!(
-        template,
+        primary_expression,
         "``",
-        TemplateElement {
-            raw: String::new(),
-            cooked: String::new(),
-            loc: Some(((1, 0), (1, 2)).into())
+        Expression::TemplateLiteral {
+            quasis: vec![TemplateElement {
+                raw: String::new(),
+                cooked: String::new(),
+                loc: Some(((1, 0), (1, 2)).into()),
+            }],
+            expressions: vec![],
+            loc: Some(((1, 0), (1, 2)).into()),
         }
     );
 }
 
 #[test]
-fn test_template_element_no_substitution_template() {
+fn test_template_element_no_expressions() {
     assert_parse_success!(
-        template,
+        primary_expression,
         "`asd`",
-        TemplateElement {
-            raw: "asd".to_string(),
-            cooked: "asd".to_string(),
+        Expression::TemplateLiteral {
+            quasis: vec![TemplateElement {
+                cooked: "asd".to_string(),
+                raw: "asd".to_string(),
+                loc: Some(((1, 0), (1, 5)).into())
+            }],
+            expressions: vec![],
             loc: Some(((1, 0), (1, 5)).into())
         }
     );
 }
 
 #[test]
-fn test_template_element_template_head() {
+fn test_template_element_template_single_expression() {
     assert_parse_success!(
-        template,
-        "`asd ${",
-        TemplateElement {
-            raw: "asd ".to_string(),
-            cooked: "asd ".to_string(),
-            loc: Some(((1, 0), (1, 7)).into())
+        primary_expression,
+        "`asd ${yield} asd`",
+        Expression::TemplateLiteral {
+            quasis: vec![
+                TemplateElement {
+                    cooked: "asd ".to_string(),
+                    raw: "asd ".to_string(),
+                    loc: Some(((1, 0), (1, 7)).into())
+                },
+                TemplateElement {
+                    cooked: " asd".to_string(),
+                    raw: " asd".to_string(),
+                    loc: Some(((1, 12), (1, 18)).into())
+                }
+            ],
+            expressions: vec![Expression::Yield {
+                argument: None,
+                delegate: false
+            }],
+            loc: Some(((1, 0), (1, 18)).into())
         }
     );
 }
 
 #[test]
-fn test_template_element_template_middle() {
+fn test_template_element_template_multiple_expressions() {
     assert_parse_success!(
-        template_substition_tail,
-        "} asd ${",
-        TemplateElement {
-            raw: " asd ".to_string(),
-            cooked: " asd ".to_string(),
-            loc: Some(((1, 0), (1, 8)).into())
-        }
-    );
-}
-
-#[test]
-fn test_template_element_template_tail() {
-    // template_tail
-    assert_parse_success!(
-        template_substition_tail,
-        "} asd",
-        TemplateElement {
-            raw: " asd".to_string(),
-            cooked: " asd".to_string(),
-            loc: Some(((1, 0), (1, 5)).into())
+        primary_expression,
+        "`asd ${yield} asd ${yield} asd`",
+        Expression::TemplateLiteral {
+            quasis: vec![
+                TemplateElement {
+                    cooked: "asd ".to_string(),
+                    raw: "asd ".to_string(),
+                    loc: Some(((1, 0), (1, 7)).into()),
+                },
+                TemplateElement {
+                    cooked: " asd ".to_string(),
+                    raw: " asd ".to_string(),
+                    loc: Some(((1, 12), (1, 20)).into())
+                },
+                TemplateElement {
+                    cooked: " asd".to_string(),
+                    raw: " asd".to_string(),
+                    loc: Some(((1, 25), (1, 31)).into())
+                }
+            ],
+            expressions: vec![
+                Expression::Yield {
+                    argument: None,
+                    delegate: false
+                },
+                Expression::Yield {
+                    argument: None,
+                    delegate: false
+                }
+            ],
+            loc: Some(((1, 0), (1, 31)).into())
         }
     );
 }
