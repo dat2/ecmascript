@@ -316,7 +316,7 @@ fn test_template_element_empty() {
         Expression::TemplateLiteral {
             quasis: vec![TemplateElement {
                 raw: String::new(),
-                cooked: String::new(),
+                cooked: Some(String::new()),
                 loc: Some(((1, 0), (1, 2)).into()),
             }],
             expressions: vec![],
@@ -332,7 +332,7 @@ fn test_template_element_no_expressions() {
         "`asd`",
         Expression::TemplateLiteral {
             quasis: vec![TemplateElement {
-                cooked: "asd".to_string(),
+                cooked: Some("asd".to_string()),
                 raw: "asd".to_string(),
                 loc: Some(((1, 0), (1, 5)).into())
             }],
@@ -350,12 +350,12 @@ fn test_template_element_template_single_expression() {
         Expression::TemplateLiteral {
             quasis: vec![
                 TemplateElement {
-                    cooked: "asd ".to_string(),
+                    cooked: Some("asd ".to_string()),
                     raw: "asd ".to_string(),
                     loc: Some(((1, 0), (1, 7)).into())
                 },
                 TemplateElement {
-                    cooked: " asd".to_string(),
+                    cooked: Some(" asd".to_string()),
                     raw: " asd".to_string(),
                     loc: Some(((1, 12), (1, 18)).into())
                 }
@@ -377,17 +377,17 @@ fn test_template_element_template_multiple_expressions() {
         Expression::TemplateLiteral {
             quasis: vec![
                 TemplateElement {
-                    cooked: "asd ".to_string(),
+                    cooked: Some("asd ".to_string()),
                     raw: "asd ".to_string(),
                     loc: Some(((1, 0), (1, 7)).into()),
                 },
                 TemplateElement {
-                    cooked: " asd ".to_string(),
+                    cooked: Some(" asd ".to_string()),
                     raw: " asd ".to_string(),
                     loc: Some(((1, 12), (1, 20)).into())
                 },
                 TemplateElement {
-                    cooked: " asd".to_string(),
+                    cooked: Some(" asd".to_string()),
                     raw: " asd".to_string(),
                     loc: Some(((1, 25), (1, 31)).into())
                 }
@@ -561,13 +561,13 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         "[,,,...yield,,,]",
         Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 16)).into()),
-            elements: vec![ExpressionListItem::Spread(
-                Some(((1, 4), (1, 12)).into()),
-                Expression::Yield {
+            elements: vec![ExpressionListItem::Spread(SpreadElement::SpreadElement {
+                argument: Expression::Yield {
                     argument: None,
                     delegate: false,
                 },
-            )],
+                loc: Some(((1, 4), (1, 12)).into()),
+            })],
         }
     );
 }
@@ -591,7 +591,7 @@ fn test_primary_expression_object_literal_shorthand() {
         "{ id }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 6)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -605,7 +605,7 @@ fn test_primary_expression_object_literal_shorthand() {
                 shorthand: true,
                 computed: false,
                 loc: Some(((1, 2), (1, 4)).into()),
-            }],
+            })],
         }
     );
 }
@@ -618,7 +618,7 @@ fn test_primary_expression_object_literal_multiple_properties() {
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
             properties: vec![
-                Property {
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 2), (1, 4)).into()),
@@ -632,8 +632,8 @@ fn test_primary_expression_object_literal_multiple_properties() {
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 2), (1, 4)).into()),
-                },
-                Property {
+                }),
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 6), (1, 9)).into()),
@@ -647,7 +647,7 @@ fn test_primary_expression_object_literal_multiple_properties() {
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
-                },
+                }),
             ],
         }
     );
@@ -661,7 +661,7 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
             properties: vec![
-                Property {
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 2), (1, 4)).into()),
@@ -675,8 +675,8 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 2), (1, 4)).into()),
-                },
-                Property {
+                }),
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 6), (1, 9)).into()),
@@ -690,7 +690,7 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
-                },
+                }),
             ],
         }
     );
@@ -703,7 +703,7 @@ fn test_primary_expression_object_literal_initializer() {
         "{ id: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -717,7 +717,7 @@ fn test_primary_expression_object_literal_initializer() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 10)).into()),
-            }],
+            })],
         }
     );
 }
@@ -729,7 +729,7 @@ fn test_object_literal_initializer_string_literal() {
         "{ 'id': true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 14)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Literal {
                     value: Literal::StringLiteral(StringLiteral("id".to_string())),
@@ -743,7 +743,7 @@ fn test_object_literal_initializer_string_literal() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 12)).into()),
-            }],
+            })],
         }
     );
 }
@@ -755,7 +755,7 @@ fn test_object_literal_initializer_numeric_literal() {
         "{ 0: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Literal {
                     value: Literal::NumericLiteral(NumericLiteral(0f64)),
@@ -769,7 +769,7 @@ fn test_object_literal_initializer_numeric_literal() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 9)).into()),
-            }],
+            })],
         }
     );
 }
@@ -781,7 +781,7 @@ fn test_object_literal_initializer_computed() {
         "{ [yield]: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 17)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Yield {
                     argument: None,
@@ -795,7 +795,7 @@ fn test_object_literal_initializer_computed() {
                 shorthand: false,
                 computed: true,
                 loc: Some(((1, 2), (1, 15)).into()),
-            }],
+            })],
         }
     );
 }
@@ -806,7 +806,7 @@ fn test_object_literal_method_definition() {
         primary_expression,
         "{ method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 2), (1, 8)).into()),
@@ -823,7 +823,7 @@ fn test_object_literal_method_definition() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 15)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 17)).into()),
         }
     );
@@ -835,7 +835,7 @@ fn test_object_literal_method_definition_generator() {
         primary_expression,
         "{ * method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 4), (1, 10)).into()),
@@ -852,7 +852,7 @@ fn test_object_literal_method_definition_generator() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 4), (1, 17)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 19)).into()),
         }
     );
@@ -864,7 +864,7 @@ fn test_object_literal_method_definition_async() {
         primary_expression,
         "{ async method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 8), (1, 14)).into()),
@@ -881,7 +881,7 @@ fn test_object_literal_method_definition_async() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 8), (1, 21)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 23)).into()),
         }
     );
@@ -893,7 +893,7 @@ fn test_object_literal_method_definition_async_generator() {
         primary_expression,
         "{ async * method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 10), (1, 16)).into()),
@@ -910,7 +910,7 @@ fn test_object_literal_method_definition_async_generator() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 10), (1, 23)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 25)).into()),
         }
     );
@@ -922,7 +922,7 @@ fn test_object_literal_method_definition_getter() {
         primary_expression,
         "{ get key() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "key".to_string(),
                     loc: Some(((1, 6), (1, 9)).into()),
@@ -939,7 +939,7 @@ fn test_object_literal_method_definition_getter() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 16)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 18)).into()),
         }
     );
@@ -951,17 +951,17 @@ fn test_object_literal_method_definition_setter() {
         primary_expression,
         "{ set key(value) {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "key".to_string(),
                     loc: Some(((1, 6), (1, 9)).into()),
                 },
                 value: Expression::FunctionExpression {
                     id: None,
-                    params: vec![Pattern::Identifier(Identifier(
-                        Some(((1, 10), (1, 15)).into()),
-                        "value".to_string(),
-                    ))],
+                    params: vec![Pattern::Identifier {
+                        name: "value".to_string(),
+                        loc: Some(((1, 10), (1, 15)).into()),
+                    }],
                     body: vec![],
                     async: false,
                     generator: false,
@@ -971,7 +971,7 @@ fn test_object_literal_method_definition_setter() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 21)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 23)).into()),
         }
     );

@@ -114,7 +114,7 @@ pub struct TemplateElement {
     /// If the template element has any sort of escape sequences (eg. \u{2028})
     /// this will represent the evaluated result of that sequence.
     /// eg. if raw == "\u{41}", cooked = "A"
-    pub cooked: String,
+    pub cooked: Option<String>,
     /// This will store the exact string value, before being evaluted into the unicode
     /// code points.
     pub raw: String,
@@ -164,7 +164,7 @@ pub enum Expression {
     /// This is an expression created by using {} brackets.
     ObjectExpression {
         /// This is the list of properties for the object.
-        properties: Vec<Property>,
+        properties: Vec<ObjectExpressionProperty>,
         /// This is the location where the expression starts.
         loc: Option<SourceLocation>,
     },
@@ -333,7 +333,13 @@ pub enum Expression {
         /// The only expression that is valid for the quasi is another TemplateLiteral
         quasi: Box<Expression>,
     },
-    // AwaitExpression { argument: Box<Expression> }
+    /// An await expression is an expression that can be used inside an async function.
+    AwaitExpression {
+        /// The expression that is being awaited for.
+        argument: Box<Expression>,
+        /// The source location of the expression.
+        loc: Option<SourceLocation>,
+    },
     /// This is the `new.target` expression that was introduced in ES2015. This
     /// tells you if the function was called with the `new` operator.
     MetaProperty,
@@ -370,7 +376,20 @@ pub enum ExpressionListItem {
     /// This is just a regular expression.
     Expression(Expression),
     /// This prevents a spread expression from being in an invalid syntax tree.
-    Spread(Option<SourceLocation>, Expression),
+    Spread(SpreadElement),
+}
+
+/// A spread element is something that be spread, eg. an array or an object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum SpreadElement {
+    /// This is an element that is being spread into another expression.
+    SpreadElement {
+        /// The expression to spread into another expression.
+        argument: Expression,
+        /// The location of the spread element.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// An object property is a tuple of a key, value, and a tag representing what kind of
@@ -405,6 +424,16 @@ pub enum PropertyKind {
     /// This means the value is a function that gets called when you try to
     /// set the property in the object.
     Set,
+}
+
+/// An object expression property can be a property or a spread property.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ObjectExpressionProperty {
+    /// A regular property being added to an object expression
+    Property(Property),
+    /// This allows you to spread into an object literal.
+    SpreadElement(SpreadElement),
 }
 
 /// A pattern is any way you can destructure an object or array.
@@ -454,11 +483,23 @@ pub enum Pattern {
 
 /// This is a restricted version of a Property that only allows patterns as the value.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ObjectPatternProperty {
-    /// The key can still be an id reference, or computed.
-    pub key: Expression,
-    /// The value however is now another pattern.
-    pub value: Pattern,
+#[serde(tag = "type")]
+pub enum ObjectPatternProperty {
+    /// The regular property.
+    #[serde(rename = "Property")]
+    AssignmentProperty {
+        /// The key can still be an id reference, or computed.
+        key: Expression,
+        /// The value however is now another pattern.
+        value: Pattern,
+    },
+    /// The object pattern can be spread.
+    RestElement {
+        /// This is the pattern to be spread into.
+        argument: Box<Pattern>,
+        /// This is the source location of the spread property.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// A template literal element can either be the string between backticks and `${`

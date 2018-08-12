@@ -520,7 +520,7 @@ fn no_substition_template<'a>(
             let cooked = pairs.iter().cloned().map(|x| x.0).collect();
             let raw = pairs.iter().cloned().map(|x| x.1).collect();
             TemplateElement {
-                cooked,
+                cooked: Some(cooked),
                 raw,
                 loc: Some((start, end).into()),
             }
@@ -557,7 +557,7 @@ fn template_head<'a>(
             let cooked = pairs.iter().cloned().map(|x| x.0).collect();
             let raw = pairs.iter().cloned().map(|x| x.1).collect();
             TemplateElement {
-                cooked,
+                cooked: Some(cooked),
                 raw,
                 loc: Some((start, end).into()),
             }
@@ -609,7 +609,7 @@ fn template_middle<'a>(
             let cooked = pairs.iter().cloned().map(|x| x.0).collect();
             let raw = pairs.iter().cloned().map(|x| x.1).collect();
             TemplateElement {
-                cooked,
+                cooked: Some(cooked),
                 raw,
                 loc: Some((start, end).into()),
             }
@@ -631,7 +631,7 @@ fn template_tail<'a>(
             let cooked = pairs.iter().cloned().map(|x| x.0).collect();
             let raw = pairs.iter().cloned().map(|x| x.1).collect();
             TemplateElement {
-                cooked,
+                cooked: Some(cooked),
                 raw,
                 loc: Some((start, end).into()),
             }
@@ -739,11 +739,12 @@ fn object_literal<'a>(
 }
 
 fn property_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ObjectExpressionProperty>
+{
     choice((
-        try(property_initializer()),
-        try(method_definition()),
-        try(shorthand_property()),
+        try(property_initializer()).map(ObjectExpressionProperty::Property),
+        try(method_definition()).map(ObjectExpressionProperty::Property),
+        try(shorthand_property()).map(ObjectExpressionProperty::Property),
     ))
 }
 
@@ -826,7 +827,10 @@ fn spread_element<'a>(
         position(),
     )
         .map(|(start, expression, end)| {
-            ExpressionListItem::Spread(Some((start, end).into()), expression)
+            ExpressionListItem::Spread(SpreadElement::SpreadElement {
+                argument: expression,
+                loc: Some((start, end).into()),
+            })
         })
 }
 
