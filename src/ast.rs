@@ -283,8 +283,13 @@ pub enum Expression {
         /// This is the list of expressions separated by a comma.
         expressions: Vec<Expression>,
     },
-    // ArrowFunctionExpression { body: ArrowFunctionBody, expression: bool }
-    // ArrowFunctionBody = FunctionBodyStatement | Expression
+    /// An arrow function expression is one that binds "this" automatically.
+    ArrowFunctionExpression {
+        /// The body can either be a list of statements or an expression.
+        body: Box<ArrowFunctionBody>,
+        /// This tells you if the arrow function is one that returns an expression
+        expression: bool,
+    },
     /// The yield expression that is only valid inside a generator function.
     /// It is a syntax error if there is a yield expression in the body of a non generator
     /// function.
@@ -296,29 +301,6 @@ pub enum Expression {
         /// until the delegate generator completes.
         delegate: bool, // yield *
     },
-    // AwaitExpression { argument: Box<Expression> }
-    /// This is the `new.target` expression that was introduced in ES2015. This
-    /// tells you if the function was called with the `new` operator.
-    MetaProperty,
-    /// This is an expression where we pass the elements of the template literal to the
-    /// tag function.
-    ///
-    /// eg.
-    /// ```javascript
-    /// function tag(stringParts, expr1, expr2) {
-    ///
-    /// }
-    /// tag`123 ${}`
-    /// ```
-    TaggedTemplate {
-        /// This is the function we're trying to pass the template eleme_literalnts to.
-        tag: Box<Expression>,
-        /// The only expression that is valid for the quasi, is another TemplateLiteral
-        /// expression. In the interest of simplicity, we are not going to disallow this in the
-        /// AST.
-        quasi: Box<Expression>,
-    },
-    // Class,
     /// A Template literal expression has many template elements with expressions littered
     /// between.
     ///
@@ -335,6 +317,27 @@ pub enum Expression {
         /// This is the location where the expression starts.
         loc: Option<SourceLocation>,
     },
+    /// This is an expression where we pass the elements of the template literal to the
+    /// tag function.
+    ///
+    /// eg.
+    /// ```javascript
+    /// function tag(stringParts, expr1, expr2) {
+    ///
+    /// }
+    /// tag`123 ${}`
+    /// ```
+    TaggedTemplateExpression {
+        /// This is the function we're trying to pass the template elements to.
+        tag: Box<Expression>,
+        /// The only expression that is valid for the quasi is another TemplateLiteral
+        quasi: Box<Expression>,
+    },
+    // AwaitExpression { argument: Box<Expression> }
+    /// This is the `new.target` expression that was introduced in ES2015. This
+    /// tells you if the function was called with the `new` operator.
+    MetaProperty,
+    // Class,
     /// *NOTE*: This is an extension to the language proposed by facebook.
     /// The JsxElement is an inlined expression of the form:
     /// <name key={value}>
@@ -406,25 +409,46 @@ pub enum PropertyKind {
 
 /// A pattern is any way you can destructure an object or array.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
 pub enum Pattern {
-    /// This is a regular IdReference pattern.
-    Identifier(Identifier),
+    /// This is a regular identifier pattern.
+    Identifier {
+        /// The identifier itself.
+        name: String,
+        /// The location of the identifier.
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to destructure objects.
-    Object(Vec<ObjectPatternProperty>),
+    ObjectPattern {
+        /// The properties that are being destructured.
+        properties: Vec<ObjectPatternProperty>,
+        /// The location of the object pattern
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to destructure arrays.
-    Array(Vec<Pattern>),
+    ArrayPattern {
+        /// The sub patterns in the destructured array.
+        elements: Vec<Pattern>,
+        /// The location of the pattern in source code.
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to collect the "rest" of properties or elements
     /// in an array into a single parameter.
     /// This is only allowed within the Array or Object patterns.
-    Rest(Identifier),
+    RestElement {
+        /// The pattern (eg. identifier) that is being collected.
+        argument: Box<Pattern>,
+        /// The location of the pattern in code
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to set a default value for a pattern.
     /// eg. const { x = 1 }
-    Default {
+    AssignmentPattern {
         /// The pattern that you are setting a default for.
         /// It is a syntax error for the pattern to be a Rest pattern.
-        pattern: Box<Pattern>,
+        left: Box<Pattern>,
         /// The value you set the default to.
-        default: Expression,
+        argument: Expression,
     },
 }
 
@@ -666,6 +690,16 @@ pub enum SuperExpression {
 pub enum FunctionBodyStatement {
     /// A statement.
     Statement(Statement),
+}
+
+/// This represents what the arrow function body can be
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ArrowFunctionBody {
+    /// The arrow function body can be a list of statements
+    FunctionBody(Vec<FunctionBodyStatement>),
+    /// The arrow function can just return a single expression immediately
+    Expression(Expression),
 }
 
 /// A statement is either a declaration (var, const, let, function, export) or an

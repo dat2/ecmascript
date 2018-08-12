@@ -925,15 +925,17 @@ fn formal_parameters<'a>(
 
 fn formal_parameter<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Pattern> {
-    (position(), identifier(), position())
-        .map(|(start, id, end)| Identifier(Some((start, end).into()), id))
-        .map(Pattern::Identifier)
+    (position(), identifier(), position()).map(|(start, name, end)| Pattern::Identifier {
+        name,
+        loc: Some((start, end).into()),
+    })
 }
 
 fn function_body<'a>(
     _yield: bool,
     _await: bool,
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<FunctionBodyStatement>> {
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<FunctionBodyStatement>>
+{
     between(
         token('{').skip(skip_tokens()),
         token('}'),
