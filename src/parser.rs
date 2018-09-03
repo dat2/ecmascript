@@ -649,7 +649,7 @@ pub(crate) fn primary_expression<'a>(
         try(object_literal()),
         try(regex_literal_expression()),
         try(template_literal()),
-        jsx_element(),
+        try(jsx_element()),
     ))
 }
 
@@ -839,6 +839,27 @@ fn assignment_expression<'a>(
     yield_expression()
 }
 
+fn conditional_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    (
+        position(),
+        primary_expression().skip(skip_tokens()),
+        token('?').skip(skip_tokens()),
+        assignment_expression().skip(skip_tokens()),
+        token(':').skip(skip_tokens()),
+        assignment_expression().skip(skip_tokens()),
+        position(),
+    )
+        .map(|(start, test, _, consequent, _, alternate, end)| {
+            Expression::ConditionalExpression {
+                test: Box::new(test),
+                consequent: Box::new(consequent),
+                alternate: Box::new(alternate),
+                loc: Some((start, end).into()),
+            }
+        })
+}
+
 fn yield_expression<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
@@ -859,35 +880,125 @@ fn jsx_element<'a>(
     choice((try(jsx_self_closing_element()), jsx_matched_element()))
 }
 
+fn jsx_element_name<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
+    identifier()
+}
+
 fn jsx_self_closing_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
         position(),
-        between(token('<'), string("/>"), identifier()),
+        token('<'),
+        jsx_element_name().skip(skip_tokens()),
+        many(jsx_attribute()),
+        string("/>"),
         position(),
     )
-        .map(|(start, name, end)| Expression::JsxElementExpression {
-            name,
-            attributes: Vec::new(),
-            children: Vec::new(),
+        .map(
+            |(start, _, name, attributes, end)| Expression::JsxElementExpression {
+                name,
+                attributes,
+                children: Vec::new(),
+                loc: Some((start, end).into()),
+            },
+        )
+}
+
+fn jsx_opening_element<'a>() -> impl Parser<
+    Input = easy::Stream<State<&'a str, SourcePosition>>,
+    Output = (String, Vec<JsxAttribute>),
+> {
+    (
+        token('<'),
+        jsx_element_name().skip(skip_tokens()),
+        many(jsx_attribute()),
+        token('>').skip(skip_tokens()),
+    )
+        .map(|(_, name, attributes, _)| (name, attributes))
+}
+
+fn jsx_attribute<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
+    choice((try(jsx_spread_attribute()), try(jsx_attribute_key_value())))
+}
+
+fn jsx_spread_attribute<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
+    between(
+        token('{').skip(skip_tokens()),
+        token('}').skip(skip_tokens()),
+        string("...").with(assignment_expression()),
+    ).map(|expression| JsxAttribute::JsxSpreadAttribute { expression })
+}
+
+fn jsx_attribute_key_value<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
+    (
+        jsx_attribute_name().skip(skip_tokens()),
+        optional(try(jsx_attribute_initializer())),
+    )
+        .map(|(name, value)| JsxAttribute::JsxAttribute { name, value })
+}
+
+fn jsx_attribute_name<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
+    identifier()
+}
+
+fn jsx_attribute_initializer<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    token('=').with(jsx_attribute_value())
+}
+
+fn jsx_attribute_value<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    choice((
+        try(jsx_attribute_value_string()),
+        try(jsx_attribute_value_expression()),
+    )).skip(skip_tokens())
+}
+
+fn jsx_attribute_value_string<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    (
+        position(),
+        string_literal().map(Literal::StringLiteral),
+        position(),
+    )
+        .map(|(start, value, end)| Expression::Literal {
+            value,
             loc: Some((start, end).into()),
         })
+}
+
+fn jsx_attribute_value_expression<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
+    between(
+        token('{').skip(skip_tokens()),
+        token('}'),
+        assignment_expression(),
+    )
+}
+
+fn jsx_closing_element<'a>(
+) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
+    between(string("</"), token('>'), jsx_element_name())
 }
 
 fn jsx_matched_element<'a>(
 ) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
     (
         position(),
-        between(token('<'), string(">"), identifier()),
-        skip_tokens(),
-        between(string("</"), token('>'), identifier()),
+        jsx_opening_element(),
+        jsx_closing_element(),
         position(),
     )
-        .then(|(start, opening_name, _, closing_name, end)| {
+        .then(|(start, (opening_name, attributes), closing_name, end)| {
             if opening_name == closing_name {
                 value(Expression::JsxElementExpression {
                     name: opening_name,
-                    attributes: Vec::new(),
+                    attributes,
                     children: Vec::new(),
                     loc: Some((start, end).into()),
                 }).left()

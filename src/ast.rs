@@ -254,6 +254,8 @@ pub enum Expression {
         alternate: Box<Expression>,
         /// The expression returned if the test expression is falsy.
         consequent: Box<Expression>,
+        /// The location in code where this expression is found.
+        loc: Option<SourceLocation>,
     },
     /// This is a regular function call, eg. `myFunction(expr1, expr2)`
     CallExpression {
