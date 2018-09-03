@@ -4,7 +4,6 @@
 //! This parser uses the error type from failure to make error interop easier for users.
 
 use ast::*;
-use combine::easy;
 use combine::parser::char::{char, crlf, digit, hex_digit, newline, spaces, string};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
@@ -13,6 +12,7 @@ use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
 use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
+use combine::stream::Stream;
 use combine::{eof, Parser};
 use failure::{self, Error};
 use std::collections::HashSet;
@@ -31,50 +31,69 @@ impl From<SourcePosition> for Position {
 
 /// This parser will consume all following whitespace tokens, including line terminators.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
-fn ws<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    spaces().map(|_| ())
+parser! {
+    fn ws[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        spaces().map(|_| ())
+    }
 }
 
 /// This parser will consume a single line terminator sequence token. This parser is only needed for the
 /// line_comment parser as it will consume up to a single line terminator token.
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
-fn line_terminator<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    newline()
-        .or(char('\u{000D}'))
-        .or(char('\u{2028}'))
-        .or(char('\u{2029}'))
-        .or(crlf())
-        .map(|_| ())
+parser! {
+    fn line_terminator[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        newline()
+            .or(char('\u{000D}'))
+            .or(char('\u{2028}'))
+            .or(char('\u{2029}'))
+            .or(crlf())
+            .map(|_| ())
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
-pub(crate) fn comment<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    try(block_comment()).or(line_comment())
+parser! {
+    fn comment[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        try(block_comment()).or(line_comment())
+    }
 }
 
 /// This parses a multiline comment, starting with /* and ending with */.
 /// It will consume the input and return ().
-fn block_comment<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    (string("/*"), skip_until(try(string("*/"))), string("*/")).map(|_| ())
+parser! {
+    fn block_comment[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (string("/*"), skip_until(try(string("*/"))), string("*/")).map(|_| ())
+    }
 }
 
 /// This parses
-fn line_comment<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    (
-        string("//"),
-        skip_until(line_terminator()),
-        line_terminator(),
-    )
-        .map(|_| ())
+parser! {
+    fn line_comment[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            string("//"),
+            skip_until(line_terminator()),
+            line_terminator(),
+        )
+            .map(|_| ())
+    }
 }
 
-fn skip_tokens<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    (ws(), optional(try(comment())), ws()).map(|_| ())
+parser! {
+    fn skip_tokens[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (ws(), optional(try(comment())), ws()).map(|_| ())
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-names-and-keywords
@@ -82,20 +101,26 @@ fn satisfy_id_start(c: char) -> bool {
     UnicodeXID::is_xid_start(c) || c == '$' || c == '_'
 }
 
-fn id_start<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char>
-{
-    satisfy(satisfy_id_start)
+parser! {
+    fn id_start[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        satisfy(satisfy_id_start)
+    }
 }
 
-fn unicode_id_start<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    try(unicode_escape_sequence().map(|x| x.0).then(|c| {
-        if satisfy_id_start(c) {
-            value(c).left()
-        } else {
-            unexpected(c).map(|_| ' ').right()
-        }
-    })).or(id_start())
+parser! {
+    fn unicode_id_start[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        try(unicode_escape_sequence().map(|x| x.0).then(|c| {
+            if satisfy_id_start(c) {
+                value(c).left()
+            } else {
+                unexpected(c).map(|_| ' ').right()
+            }
+        })).or(id_start())
+    }
 }
 
 fn satisfy_id_continue(c: char) -> bool {
@@ -103,43 +128,52 @@ fn satisfy_id_continue(c: char) -> bool {
     UnicodeXID::is_xid_continue(c) || c == '\u{200C}' || c == '\u{200D}' || c == '$' || c == '_'
 }
 
-fn id_continue<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    satisfy(satisfy_id_continue)
+parser! {
+    fn id_continue[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        satisfy(satisfy_id_continue)
+    }
 }
 
-fn unicode_id_continue<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    try(unicode_escape_sequence().map(|x| x.0).then(|c| {
-        if satisfy_id_continue(c) {
-            value(c).left()
-        } else {
-            unexpected(c).map(|_| ' ').right()
-        }
-    })).or(id_continue())
+parser! {
+    fn unicode_id_continue[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        try(unicode_escape_sequence().map(|x| x.0).then(|c| {
+            if satisfy_id_continue(c) {
+                value(c).left()
+            } else {
+                unexpected(c).map(|_| ' ').right()
+            }
+        })).or(id_continue())
+    }
 }
 
 // TODO strict mode
-pub(crate) fn identifier<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    (unicode_id_start(), many(unicode_id_continue()))
-        .map(|(s, c): (char, String)| s.to_string() + &c)
-        .then(|id| {
-            if KEYWORDS.contains::<str>(&id)
-                || FUTURE_RESERVED_WORDS.contains::<str>(&id)
-                || FUTURE_RESERVED_WORDS_STRICT.contains::<str>(&id)
-                || id == "null"
-                || id == "true"
-                || id == "false"
-            {
-                unexpected("reserved word")
-                    .map(|_| String::new())
-                    .message("reserved word")
-                    .right()
-            } else {
-                value(id).left()
-            }
-        })
+parser! {
+    fn identifier[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (unicode_id_start(), many(unicode_id_continue()))
+            .map(|(s, c): (char, String)| s.to_string() + &c)
+            .then(|id| {
+                if KEYWORDS.contains::<str>(&id)
+                    || FUTURE_RESERVED_WORDS.contains::<str>(&id)
+                    || FUTURE_RESERVED_WORDS_STRICT.contains::<str>(&id)
+                    || id == "null"
+                    || id == "true"
+                    || id == "false"
+                {
+                    unexpected("reserved word")
+                        .map(|_| String::new())
+                        .message("reserved word")
+                        .right()
+                } else {
+                    value(id).left()
+                }
+            })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-reserved-words
@@ -203,797 +237,993 @@ lazy_static! {
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
-pub(crate) fn null_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NullLiteral> {
-    string("null").map(|_| NullLiteral)
+parser! {
+    fn null_literal[I]()(I) -> NullLiteral
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        string("null").map(|_| NullLiteral)
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
-pub(crate) fn boolean_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = BooleanLiteral> {
-    (choice((
-        try(string("true")).map(|_| true),
-        string("false").map(|_| false),
-    ))).map(BooleanLiteral)
+parser! {
+    fn boolean_literal[I]()(I) -> BooleanLiteral
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (choice((
+            try(string("true")).map(|_| true),
+            string("false").map(|_| false),
+        ))).map(BooleanLiteral)
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
-pub(crate) fn numeric_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = NumericLiteral> {
-    (choice((
-        try(binary_integer_literal()),
-        try(octal_integer_literal()),
-        try(hex_integer_literal()),
-        decimal_literal(),
-    ))).map(NumericLiteral)
+parser! {
+    fn numeric_literal[I]()(I) -> NumericLiteral
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (choice((
+            try(binary_integer_literal()),
+            try(octal_integer_literal()),
+            try(hex_integer_literal()),
+            decimal_literal(),
+        ))).map(NumericLiteral)
+    }
 }
 
-fn decimal_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
-    (
-        optional(decimal_integer_literal()),
-        optional(
-            (token('.'), many::<String, _>(digit()))
-                .map(|(c, s): (char, String)| c.to_string() + &s),
-        ),
-        optional(exponent_part()),
-    )
-        .then(|tuple| match tuple {
-            (None, None, None) => unexpected("empty").map(|_| String::new()).left(),
-            (literal_opt, digits_opt, exponent_opt) => value(
-                literal_opt.unwrap_or_else(String::new)
-                    + &digits_opt.unwrap_or_else(String::new)
-                    + &exponent_opt.unwrap_or_else(String::new),
-            ).right(),
-        }).map(|s| s.parse::<f64>().unwrap())
-}
-
-fn decimal_integer_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    choice((
-        string("0").skip(not_followed_by(digit())).map(String::from),
-        (one_of("123456789".chars()), many::<String, _>(digit()))
-            .map(|(c, s): (char, String)| c.to_string() + &s),
-    ))
-}
-
-fn exponent_part<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    (
-        token('e').or(token('E')),
-        optional(token('-').or(token('+'))),
-        many1::<String, _>(digit()),
-    )
-        .map(
-            |(e, sign_opt, digits): (char, Option<char>, String)| match sign_opt {
-                Some(sign) => e.to_string() + &sign.to_string() + &digits,
-                None => e.to_string() + &digits,
-            },
+parser! {
+    fn decimal_literal[I]()(I) -> f64
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            optional(decimal_integer_literal()),
+            optional(
+                (token('.'), many::<String, _>(digit()))
+                    .map(|(c, s): (char, String)| c.to_string() + &s),
+            ),
+            optional(exponent_part()),
         )
+            .then(|tuple| match tuple {
+                (None, None, None) => unexpected("empty").map(|_| String::new()).left(),
+                (literal_opt, digits_opt, exponent_opt) => value(
+                    literal_opt.unwrap_or_else(String::new)
+                        + &digits_opt.unwrap_or_else(String::new)
+                        + &exponent_opt.unwrap_or_else(String::new),
+                ).right(),
+            }).map(|s| s.parse::<f64>().unwrap())
+    }
 }
 
-fn binary_integer_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
-    (
-        token('0'),
-        token('b').or(token('B')),
-        many1::<String, _>(one_of("01".chars())),
-    )
-        .map(|(_, _, digits)| i64::from_str_radix(&digits, 2).unwrap() as f64)
+parser! {
+    fn decimal_integer_literal[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            string("0").skip(not_followed_by(digit())).map(String::from),
+            (one_of("123456789".chars()), many::<String, _>(digit()))
+                .map(|(c, s): (char, String)| c.to_string() + &s),
+        ))
+    }
 }
 
-fn octal_integer_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
-    (
-        token('0'),
-        token('o').or(token('O')),
-        many1::<String, _>(one_of("01234567".chars())),
-    )
-        .map(|(_, _, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
+parser! {
+    fn exponent_part[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('e').or(token('E')),
+            optional(token('-').or(token('+'))),
+            many1::<String, _>(digit()),
+        )
+            .map(
+                |(e, sign_opt, digits): (char, Option<char>, String)| match sign_opt {
+                    Some(sign) => e.to_string() + &sign.to_string() + &digits,
+                    None => e.to_string() + &digits,
+                },
+            )
+    }
 }
 
-fn hex_integer_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = f64> {
-    (
-        token('0'),
-        token('x').or(token('X')),
-        many1::<String, _>(hex_digit()),
-    )
-        .map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
+parser! {
+    fn binary_integer_literal[I]()(I) -> f64
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('0'),
+            token('b').or(token('B')),
+            many1::<String, _>(one_of("01".chars())),
+        )
+            .map(|(_, _, digits)| i64::from_str_radix(&digits, 2).unwrap() as f64)
+    }
+}
+
+parser! {
+    fn octal_integer_literal[I]()(I) -> f64
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('0'),
+            token('o').or(token('O')),
+            many1::<String, _>(one_of("01234567".chars())),
+        )
+            .map(|(_, _, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
+    }
+}
+
+parser! {
+    fn hex_integer_literal[I]()(I) -> f64
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('0'),
+            token('x').or(token('X')),
+            many1::<String, _>(hex_digit()),
+        )
+            .map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
-pub(crate) fn string_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = StringLiteral> {
-    (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
+parser! {
+    fn string_literal[I]()(I) -> StringLiteral
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
+    }
 }
 
-fn double_quote_string<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    between(
-        token('"'),
-        token('"'),
-        many(double_quote_string_character()),
-    )
+parser! {
+    fn double_quote_string[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('"'),
+            token('"'),
+            many(double_quote_string_character()),
+        )
+    }
 }
 
-fn double_quote_string_character<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
-    escape_sequence().map(|x| x.0).or(none_of(
-        "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars(),
-    ))
+parser! {
+    fn double_quote_string_character[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
+        escape_sequence().map(|x| x.0).or(none_of(
+            "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars(),
+        ))
+    }
 }
 
-fn single_quote_string<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    between(
-        token('\''),
-        token('\''),
-        many(single_quote_string_character()),
-    )
+parser! {
+    fn single_quote_string[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('\''),
+            token('\''),
+            many(single_quote_string_character()),
+        )
+    }
 }
 
-fn single_quote_string_character<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
-    escape_sequence()
-        .map(|x| x.0)
-        .or(none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}'".chars()))
+parser! {
+    fn single_quote_string_character[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
+        escape_sequence()
+            .map(|x| x.0)
+            .or(none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}'".chars()))
+    }
 }
 
 // (char, String) is "cooked" and "raw"
 // this is for template elements, to be able to get access to the raw string
 // this makes things uglier, but oh well
-fn escape_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    choice((
-        try(character_escape_sequence()),
-        try(non_escape_character_sequence()),
-        try(hex_escape_sequence()),
-        // TODO legacy octal escape sequence
-        unicode_escape_sequence(),
-    ))
+parser! {
+    fn escape_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(character_escape_sequence()),
+            try(non_escape_character_sequence()),
+            try(hex_escape_sequence()),
+            // TODO legacy octal escape sequence
+            unicode_escape_sequence(),
+        ))
+    }
 }
 
-fn character_escape_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    token('\\')
-        .and(one_of(r#"'"\bfnrtv"#.chars()))
-        .map(|(t, c)| {
-            let cooked = match c {
-                'b' => '\u{8}',
-                'f' => '\u{C}',
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
-                'v' => '\u{B}',
-                other => other,
-            };
-            (cooked, format!("{}{}", t, c,))
+parser! {
+    fn character_escape_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        token('\\')
+            .and(one_of(r#"'"\bfnrtv"#.chars()))
+            .map(|(t, c)| {
+                let cooked = match c {
+                    'b' => '\u{8}',
+                    'f' => '\u{C}',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    'v' => '\u{B}',
+                    other => other,
+                };
+                (cooked, format!("{}{}", t, c,))
+            })
+    }
+}
+
+parser! {
+    fn non_escape_character_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        token('\\')
+            .and(none_of(
+                "'\"\\bfnrtv0123456789xu\r\n\u{2028}\u{2029}".chars(),
+            )).map(|(t, c)| (c, format!("{}{}", t, c)))
+    }
+}
+
+parser! {
+    fn hex_escape_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (token('\\'), token('x'), count::<String, _>(2, hex_digit())).map(|(t, x, hex_digits)| {
+            let code_point = u32::from_str_radix(&hex_digits, 16).unwrap();
+            let cooked = ::std::char::from_u32(code_point).unwrap();
+            (cooked, format!("{}{}{}", t, x, hex_digits))
         })
-}
-
-fn non_escape_character_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    token('\\')
-        .and(none_of(
-            "'\"\\bfnrtv0123456789xu\r\n\u{2028}\u{2029}".chars(),
-        )).map(|(t, c)| (c, format!("{}{}", t, c)))
-}
-
-fn hex_escape_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    (token('\\'), token('x'), count::<String, _>(2, hex_digit())).map(|(t, x, hex_digits)| {
-        let code_point = u32::from_str_radix(&hex_digits, 16).unwrap();
-        let cooked = ::std::char::from_u32(code_point).unwrap();
-        (cooked, format!("{}{}{}", t, x, hex_digits))
-    })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#prod-UnicodeEscapeSequence
-fn unicode_escape_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    (
-        token('\\'),
-        token('u'),
-        choice((
-            (token('{'), count::<String, _>(6, hex_digit()), token('}')).map(
-                |(s, digits, e): (char, String, char)| s.to_string() + &digits + &e.to_string(),
-            ),
-            count::<String, _>(4, hex_digit()),
-        )),
-    )
-        .then(|(t, u, digits_raw)| {
-            let digits_cooked = if &digits_raw[0..1] == "{" {
-                &digits_raw[1..digits_raw.len() - 1]
-            } else {
-                &digits_raw[..]
-            };
-            let code_point = u32::from_str_radix(digits_cooked, 16).unwrap();
-            if code_point > 0x0010_FFFF {
-                unexpected("code point")
-                    .map(|_| (' ', String::new()))
-                    .message("Code point too large")
-                    .right()
-            } else {
-                let cooked = ::std::char::from_u32(code_point).unwrap();
-                let raw = format!("{}{}{}", t, u, digits_raw);
-                value((cooked, raw)).left()
-            }
-        })
+parser! {
+    fn unicode_escape_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('\\'),
+            token('u'),
+            choice((
+                (token('{'), count::<String, _>(6, hex_digit()), token('}')).map(
+                    |(s, digits, e): (char, String, char)| s.to_string() + &digits + &e.to_string(),
+                ),
+                count::<String, _>(4, hex_digit()),
+            )),
+        )
+            .then(|(t, u, digits_raw)| {
+                let digits_cooked = if &digits_raw[0..1] == "{" {
+                    &digits_raw[1..digits_raw.len() - 1]
+                } else {
+                    &digits_raw[..]
+                };
+                let code_point = u32::from_str_radix(digits_cooked, 16).unwrap();
+                if code_point > 0x0010_FFFF {
+                    unexpected("code point")
+                        .map(|_| (' ', String::new()))
+                        .message("Code point too large")
+                        .right()
+                } else {
+                    let cooked = ::std::char::from_u32(code_point).unwrap();
+                    let raw = format!("{}{}{}", t, u, digits_raw);
+                    value((cooked, raw)).left()
+                }
+            })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-regular-expression-literals
-fn regex_literal_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), regex_literal(), position()).map(|(start, value, end)| Expression::Literal {
-        value: Literal::RegExpLiteral(value),
-        loc: Some((start, end).into()),
-    })
-}
-
-pub(crate) fn regex_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = RegExpLiteral> {
-    (
-        between(token('/'), token('/'), regex_body()),
-        many::<String, _>(id_continue()),
-    )
-        .map(|(pattern, flags)| RegExpLiteral { pattern, flags })
-}
-
-fn regex_body<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    (regex_first_char(), many::<String, _>(regex_char())).map(|(s, s2): (String, String)| s + &s2)
-}
-
-fn regex_first_char<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    try(regex_backslash_sequence())
-        .or(try(regex_class()))
-        .or(none_of("*/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
-}
-
-fn regex_char<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    try(regex_backslash_sequence())
-        .or(try(regex_class()))
-        .or(none_of("/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
-}
-
-fn regex_non_terminator<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = char> {
-    none_of("\n\r\u{2028}\u{2029}".chars())
-}
-
-fn regex_backslash_sequence<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    (token('\\'), regex_non_terminator()).map(|(c, s): (char, char)| c.to_string() + &s.to_string())
-}
-
-fn regex_class<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    (
-        token('['),
-        many::<String, _>(
-            try(regex_backslash_sequence()).or(none_of("]\\".chars()).map(|c: char| c.to_string())),
-        ),
-        token(']'),
-    )
-        .map(|(open, middle, end): (char, String, char)| {
-            open.to_string() + &middle + &end.to_string()
+parser! {
+    fn regex_literal_expression[I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), regex_literal(), position()).map(|(start, value, end)| Expression::Literal {
+            value: Literal::RegExpLiteral(value),
+            loc: Some((start, end).into()),
         })
+    }
+}
+
+parser! {
+    fn regex_literal[I]()(I) -> RegExpLiteral
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            between(token('/'), token('/'), regex_body()),
+            many::<String, _>(id_continue()),
+        )
+            .map(|(pattern, flags)| RegExpLiteral { pattern, flags })
+    }
+}
+
+parser! {
+    fn regex_body[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (regex_first_char(), many::<String, _>(regex_char())).map(|(s, s2): (String, String)| s + &s2)
+    }
+}
+
+parser! {
+    fn regex_first_char [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        try(regex_backslash_sequence())
+            .or(try(regex_class()))
+            .or(none_of("*/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
+    }
+}
+
+parser! {
+    fn regex_char [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        try(regex_backslash_sequence())
+            .or(try(regex_class()))
+            .or(none_of("/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
+    }
+}
+
+parser! {
+    fn regex_non_terminator [I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        none_of("\n\r\u{2028}\u{2029}".chars())
+    }
+}
+
+parser! {
+    fn regex_backslash_sequence [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (token('\\'), regex_non_terminator()).map(|(c, s): (char, char)| c.to_string() + &s.to_string())
+    }
+}
+
+parser! {
+    fn regex_class [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('['),
+            many::<String, _>(
+                try(regex_backslash_sequence()).or(none_of("]\\".chars()).map(|c: char| c.to_string())),
+                ),
+                token(']'),
+                )
+            .map(|(open, middle, end): (char, String, char)| {
+                open.to_string() + &middle + &end.to_string()
+            })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
-fn template_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        choice((
-            try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
-            try(substitution_template()),
-        )),
-        position(),
-    )
-        .map(
-            |(start, (quasis, expressions), end)| Expression::TemplateLiteral {
-                quasis,
-                expressions,
-                loc: Some((start, end).into()),
+parser! {
+    fn template_literal [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            choice((
+                    try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
+                    try(substitution_template()),
+                    )),
+                    position(),
+                    )
+            .map(
+                |(start, (quasis, expressions), end)| Expression::TemplateLiteral {
+                    quasis,
+                    expressions,
+                    loc: Some((start, end).into()),
+                },
+                )
+    }
+}
+
+parser! {
+    fn no_substition_template [I]()(I) -> TemplateElement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('`'),
+                token('`'),
+                many::<Vec<_>, _>(template_character()),
+                ),
+                position(),
+                )
+            .map(|(start, pairs, end)| {
+                let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+                let raw = pairs.iter().cloned().map(|x| x.1).collect();
+                TemplateElement {
+                    cooked: Some(cooked),
+                    raw,
+                    loc: Some((start, end).into()),
+                }
+            })
+    }
+}
+
+parser! {
+    fn substitution_template[I]()(I) -> (Vec<TemplateElement>, Vec<Expression>)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (template_head(), assignment_expression(), template_spans()).map(
+            |(quasi, expression, (mut quasis_span, mut expressions_span))| {
+                let mut quasis = vec![quasi];
+                quasis.append(&mut quasis_span);
+                let mut expressions = vec![expression];
+                expressions.append(&mut expressions_span);
+                (quasis, expressions)
             },
         )
+    }
 }
 
-fn no_substition_template<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    (
-        position(),
-        between(
-            token('`'),
-            token('`'),
-            many::<Vec<_>, _>(template_character()),
-        ),
-        position(),
-    )
-        .map(|(start, pairs, end)| {
-            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-            let raw = pairs.iter().cloned().map(|x| x.1).collect();
-            TemplateElement {
-                cooked: Some(cooked),
-                raw,
-                loc: Some((start, end).into()),
-            }
-        })
+parser! {
+    fn template_head [I]()(I) -> TemplateElement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('`'),
+                string("${"),
+                many::<Vec<_>, _>(template_character()),
+                ),
+                position(),
+                )
+            .map(|(start, pairs, end)| {
+                let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+                let raw = pairs.iter().cloned().map(|x| x.1).collect();
+                TemplateElement {
+                    cooked: Some(cooked),
+                    raw,
+                    loc: Some((start, end).into()),
+                }
+            })
+    }
 }
 
-fn substitution_template<'a>() -> impl Parser<
-    Input = easy::Stream<State<&'a str, SourcePosition>>,
-    Output = (Vec<TemplateElement>, Vec<Expression>),
-> {
-    (template_head(), assignment_expression(), template_spans()).map(
-        |(quasi, expression, (mut quasis_span, mut expressions_span))| {
-            let mut quasis = vec![quasi];
-            quasis.append(&mut quasis_span);
-            let mut expressions = vec![expression];
-            expressions.append(&mut expressions_span);
-            (quasis, expressions)
-        },
-    )
+parser! {
+    fn template_spans[I]()(I) -> (Vec<TemplateElement>, Vec<Expression>)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            many::<Vec<_>, _>(try((template_middle(), assignment_expression()))),
+            template_tail(),
+        )
+            .map(|(quasis_expressions, tail)| {
+                let mut quasis = Vec::new();
+                let mut expressions = Vec::new();
+                for (quasi, expression) in quasis_expressions {
+                    quasis.push(quasi);
+                    expressions.push(expression);
+                }
+                quasis.push(tail);
+                (quasis, expressions)
+            })
+    }
 }
 
-fn template_head<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    (
-        position(),
-        between(
-            token('`'),
-            string("${"),
-            many::<Vec<_>, _>(template_character()),
-        ),
-        position(),
-    )
-        .map(|(start, pairs, end)| {
-            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-            let raw = pairs.iter().cloned().map(|x| x.1).collect();
-            TemplateElement {
-                cooked: Some(cooked),
-                raw,
-                loc: Some((start, end).into()),
-            }
-        })
+parser! {
+    fn template_character [I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(token('$').skip(not_followed_by(token('{')))).map(|x: char| (x, x.to_string())),
+            try(escape_sequence()),
+            try(one_of("\r\n\u{2028}\u{2029}".chars())).map(|x: char| (x, x.to_string())),
+            none_of("`\\$".chars()).map(|x: char| (x, x.to_string())),
+        ))
+    }
 }
 
-fn template_spans<'a>() -> impl Parser<
-    Input = easy::Stream<State<&'a str, SourcePosition>>,
-    Output = (Vec<TemplateElement>, Vec<Expression>),
-> {
-    (
-        many::<Vec<_>, _>(try((template_middle(), assignment_expression()))),
-        template_tail(),
-    )
-        .map(|(quasis_expressions, tail)| {
-            let mut quasis = Vec::new();
-            let mut expressions = Vec::new();
-            for (quasi, expression) in quasis_expressions {
-                quasis.push(quasi);
-                expressions.push(expression);
-            }
-            quasis.push(tail);
-            (quasis, expressions)
-        })
+parser! {
+    fn template_middle [I]()(I) -> TemplateElement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('}'),
+                string("${"),
+                many::<Vec<_>, _>(template_character()),
+            ),
+            position(),
+        )
+            .map(|(start, pairs, end)| {
+                let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+                let raw = pairs.iter().cloned().map(|x| x.1).collect();
+                TemplateElement {
+                    cooked: Some(cooked),
+                    raw,
+                    loc: Some((start, end).into()),
+                }
+            })
+    }
 }
 
-pub(crate) fn template_character<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (char, String)> {
-    choice((
-        try(token('$').skip(not_followed_by(token('{')))).map(|x: char| (x, x.to_string())),
-        try(escape_sequence()),
-        try(one_of("\r\n\u{2028}\u{2029}".chars())).map(|x: char| (x, x.to_string())),
-        none_of("`\\$".chars()).map(|x: char| (x, x.to_string())),
-    ))
-}
-
-fn template_middle<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    (
-        position(),
-        between(
-            token('}'),
-            string("${"),
-            many::<Vec<_>, _>(template_character()),
-        ),
-        position(),
-    )
-        .map(|(start, pairs, end)| {
-            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-            let raw = pairs.iter().cloned().map(|x| x.1).collect();
-            TemplateElement {
-                cooked: Some(cooked),
-                raw,
-                loc: Some((start, end).into()),
-            }
-        })
-}
-
-fn template_tail<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = TemplateElement> {
-    (
-        position(),
-        between(
-            token('}'),
-            token('`'),
-            many::<Vec<_>, _>(template_character()),
-        ),
-        position(),
-    )
-        .map(|(start, pairs, end)| {
-            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-            let raw = pairs.iter().cloned().map(|x| x.1).collect();
-            TemplateElement {
-                cooked: Some(cooked),
-                raw,
-                loc: Some((start, end).into()),
-            }
-        })
+parser! {
+    fn template_tail [I]()(I) -> TemplateElement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('}'),
+                token('`'),
+                many::<Vec<_>, _>(template_character()),
+            ),
+            position(),
+        )
+            .map(|(start, pairs, end)| {
+                let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+                let raw = pairs.iter().cloned().map(|x| x.1).collect();
+                TemplateElement {
+                    cooked: Some(cooked),
+                    raw,
+                    loc: Some((start, end).into()),
+                }
+            })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
-pub(crate) fn primary_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((
-        try(this()),
-        try(identifier_expression()),
-        try(literal()),
-        try(array_literal()),
-        try(object_literal()),
-        try(regex_literal_expression()),
-        try(template_literal()),
-        try(jsx_element()),
-    ))
-}
-
-fn this<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), string("this"), position()).map(|(start, _, end)| Expression::ThisExpression {
-        loc: Some((start, end).into()),
-    })
-}
-
-fn identifier_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (position(), identifier(), position()).map(|(start, name, end)| Expression::Identifier {
-        name,
-        loc: Some((start, end).into()),
-    })
-}
-
-fn literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
+parser! {
+    fn primary_expression [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
         choice((
-            try(null_literal()).map(Literal::NullLiteral),
-            try(boolean_literal()).map(Literal::BooleanLiteral),
-            try(numeric_literal()).map(Literal::NumericLiteral),
-            try(string_literal()).map(Literal::StringLiteral),
-        )),
-        position(),
-    )
-        .map(|(start, value, end)| Expression::Literal {
-            value,
+            try(this()),
+            try(identifier_expression()),
+            try(literal()),
+            try(array_literal()),
+            try(object_literal()),
+            try(regex_literal_expression()),
+            try(template_literal()),
+            try(jsx_element()),
+        ))
+    }
+}
+
+parser! {
+    fn this [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), string("this"), position()).map(|(start, _, end)| Expression::ThisExpression {
             loc: Some((start, end).into()),
         })
+    }
 }
 
-fn array_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        between(
-            token('[').skip(skip_tokens()),
-            token(']').skip(skip_tokens()),
-            elision().with(element_list()).skip(elision()),
-        ),
-        position(),
-    )
-        .map(|(start, elements, end)| Expression::ArrayExpression {
-            elements,
+parser! {
+    fn identifier_expression [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), identifier(), position()).map(|(start, name, end)| Expression::Identifier {
+            name,
             loc: Some((start, end).into()),
         })
+    }
 }
 
-fn elision<'a>() -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ()> {
-    many::<Vec<_>, _>(token(',')).with(skip_tokens())
-}
-
-fn element_list<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<ExpressionListItem>>
-{
-    many(
-        choice((
-            try(assignment_expression()).map(ExpressionListItem::Expression),
-            spread_element(),
-        )).skip(elision()),
-    )
-}
-
-fn object_literal<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        between(
-            token('{').skip(skip_tokens()),
-            token('}').skip(skip_tokens()),
-            sep_end_by(
-                property_definition().skip(skip_tokens()),
-                token(',').skip(skip_tokens()),
-            ),
-        ),
-        position(),
-    )
-        .map(|(start, properties, end)| Expression::ObjectExpression {
-            loc: Some((start, end).into()),
-            properties,
-        })
-}
-
-fn property_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ObjectExpressionProperty>
-{
-    choice((
-        try(property_initializer()).map(ObjectExpressionProperty::Property),
-        try(method_definition()).map(ObjectExpressionProperty::Property),
-        try(shorthand_property()).map(ObjectExpressionProperty::Property),
-    ))
-}
-
-fn shorthand_property<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (position(), identifier_expression(), position()).map(|(start, id, end)| Property {
-        key: id.clone(),
-        value: id,
-        kind: PropertyKind::Init,
-        method: false,
-        shorthand: true,
-        computed: false,
-        loc: Some((start, end).into()),
-    })
-}
-
-fn property_initializer<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        position(),
-        property_name(),
-        skip_tokens(),
-        token(':'),
-        skip_tokens(),
-        literal(),
-        position(),
-    )
-        .map(|(start, (key, computed), _, _, _, value, end)| Property {
-            key,
-            value,
-            kind: PropertyKind::Init,
-            method: false,
-            shorthand: false,
-            computed,
-            loc: Some((start, end).into()),
-        })
-}
-
-fn property_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = (Expression, bool)>
-{
-    choice((
-        try(literal_property_name()).map(|e| (e, false)),
-        try(computed_property_name()).map(|e| (e, true)),
-    ))
-}
-
-fn literal_property_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((
-        identifier_expression(),
-        (position(), string_literal(), position()).map(|(start, value, end)| Expression::Literal {
-            value: Literal::StringLiteral(value),
-            loc: Some((start, end).into()),
-        }),
-        (position(), numeric_literal(), position()).map(|(start, value, end)| {
-            Expression::Literal {
-                value: Literal::NumericLiteral(value),
-                loc: Some((start, end).into()),
-            }
-        }),
-    ))
-}
-
-fn computed_property_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    between(
-        token('[').skip(skip_tokens()),
-        token(']'),
-        assignment_expression(),
-    )
-}
-
-fn spread_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = ExpressionListItem>
-{
-    (
-        position(),
-        string("...").with(assignment_expression()),
-        position(),
-    )
-        .map(|(start, expression, end)| {
-            ExpressionListItem::Spread(SpreadElement::SpreadElement {
-                argument: expression,
+parser! {
+    fn literal [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            choice((
+                    try(null_literal()).map(Literal::NullLiteral),
+                    try(boolean_literal()).map(Literal::BooleanLiteral),
+                    try(numeric_literal()).map(Literal::NumericLiteral),
+                    try(string_literal()).map(Literal::StringLiteral),
+                    )),
+                    position(),
+                    )
+            .map(|(start, value, end)| Expression::Literal {
+                value,
                 loc: Some((start, end).into()),
             })
-        })
+    }
 }
 
-fn assignment_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    yield_expression()
-}
-
-fn conditional_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        primary_expression().skip(skip_tokens()),
-        token('?').skip(skip_tokens()),
-        assignment_expression().skip(skip_tokens()),
-        token(':').skip(skip_tokens()),
-        assignment_expression().skip(skip_tokens()),
-        position(),
-    )
-        .map(|(start, test, _, consequent, _, alternate, end)| {
-            Expression::ConditionalExpression {
-                test: Box::new(test),
-                consequent: Box::new(consequent),
-                alternate: Box::new(alternate),
+parser! {
+    fn array_literal [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('[').skip(skip_tokens()),
+                token(']').skip(skip_tokens()),
+                elision().with(element_list()).skip(elision()),
+                ),
+                position(),
+                )
+            .map(|(start, elements, end)| Expression::ArrayExpression {
+                elements,
                 loc: Some((start, end).into()),
-            }
-        })
+            })
+    }
 }
 
-fn yield_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        string("yield"),
-        skip_tokens(),
-        // optional((optional(token('*')), ok())),
-        skip_tokens(),
-    )
-        .map(|(_, _, _)| Expression::Yield {
-            argument: None,
-            delegate: false,
+parser! {
+    fn elision [I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        many::<Vec<_>, _>(token(',')).with(skip_tokens())
+    }
+}
+
+parser! {
+    fn element_list [I]()(I) -> Vec<ExpressionListItem>
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        many(
+            choice((
+                    try(assignment_expression()).map(ExpressionListItem::Expression),
+                    spread_element(),
+                    )).skip(elision()),
+                    )
+    }
+}
+
+parser! {
+    fn object_literal [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            between(
+                token('{').skip(skip_tokens()),
+                token('}').skip(skip_tokens()),
+                sep_end_by(
+                    property_definition().skip(skip_tokens()),
+                    token(',').skip(skip_tokens()),
+                    ),
+                    ),
+                    position(),
+                    )
+            .map(|(start, properties, end)| Expression::ObjectExpression {
+                loc: Some((start, end).into()),
+                properties,
+            })
+    }
+}
+
+parser! {
+    fn property_definition [I]()(I) -> ObjectExpressionProperty
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+                try(property_initializer()).map(ObjectExpressionProperty::Property),
+                try(method_definition()).map(ObjectExpressionProperty::Property),
+                try(shorthand_property()).map(ObjectExpressionProperty::Property),
+                ))
+    }
+}
+
+parser! {
+    fn shorthand_property [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), identifier_expression(), position()).map(|(start, id, end)| Property {
+            key: id.clone(),
+            value: id,
+            kind: PropertyKind::Init,
+            method: false,
+            shorthand: true,
+            computed: false,
+            loc: Some((start, end).into()),
         })
+    }
+}
+
+parser! {
+    fn property_initializer [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            property_name(),
+            skip_tokens(),
+            token(':'),
+            skip_tokens(),
+            literal(),
+            position(),
+            )
+            .map(|(start, (key, computed), _, _, _, value, end)| Property {
+                key,
+                value,
+                kind: PropertyKind::Init,
+                method: false,
+                shorthand: false,
+                computed,
+                loc: Some((start, end).into()),
+            })
+    }
+}
+
+parser! {
+    fn property_name [I]()(I) -> (Expression, bool)
+        where [I: Stream<Item=char, Position=SourcePosition>]
+        {
+            choice((
+                    try(literal_property_name()).map(|e| (e, false)),
+                    try(computed_property_name()).map(|e| (e, true)),
+                    ))
+        }
+}
+
+parser! {
+    fn literal_property_name [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            identifier_expression(),
+            (position(), string_literal(), position()).map(|(start, value, end)| Expression::Literal {
+                value: Literal::StringLiteral(value),
+                loc: Some((start, end).into()),
+            }),
+            (position(), numeric_literal(), position()).map(|(start, value, end)| {
+                Expression::Literal {
+                    value: Literal::NumericLiteral(value),
+                    loc: Some((start, end).into()),
+                }
+            }),
+        ))
+    }
+}
+
+parser! {
+    fn computed_property_name [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('[').skip(skip_tokens()),
+            token(']'),
+            assignment_expression(),
+        )
+    }
+}
+
+parser! {
+    fn spread_element [I]()(I) -> ExpressionListItem
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            string("...").with(assignment_expression()),
+            position(),
+        )
+            .map(|(start, expression, end)| {
+                ExpressionListItem::Spread(SpreadElement::SpreadElement {
+                    argument: expression,
+                    loc: Some((start, end).into()),
+                })
+            })
+    }
+}
+
+parser! {
+    fn assignment_expression[I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(yield_expression()),
+            try(conditional_expression()),
+        ))
+    }
+}
+
+parser! {
+    fn conditional_expression[I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            primary_expression().skip(skip_tokens()),
+            token('?').skip(skip_tokens()),
+            assignment_expression().skip(skip_tokens()),
+            token(':').skip(skip_tokens()),
+            assignment_expression().skip(skip_tokens()),
+            position(),
+        )
+            .map(|(start, test, _, consequent, _, alternate, end)| {
+                Expression::ConditionalExpression {
+                    test: Box::new(test),
+                    consequent: Box::new(consequent),
+                    alternate: Box::new(alternate),
+                    loc: Some((start, end).into()),
+                }
+            })
+    }
+}
+
+parser! {
+    fn yield_expression [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            string("yield"),
+            skip_tokens(),
+            // optional((optional(token('*')), ok())),
+            skip_tokens(),
+            )
+            .map(|(_, _, _)| Expression::Yield {
+                argument: None,
+                delegate: false,
+            })
+    }
 }
 
 // https://facebook.github.io/jsx/
-fn jsx_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((try(jsx_self_closing_element()), jsx_matched_element()))
+parser! {
+    fn jsx_element [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((try(jsx_self_closing_element()), jsx_matched_element()))
+    }
 }
 
-fn jsx_element_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    identifier()
+parser! {
+    fn jsx_element_name [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        identifier()
+    }
 }
 
-fn jsx_self_closing_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        token('<'),
-        jsx_element_name().skip(skip_tokens()),
-        many(jsx_attribute()),
-        string("/>"),
-        position(),
-    )
+parser! {
+    fn jsx_self_closing_element [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            token('<'),
+            jsx_element_name().skip(skip_tokens()),
+            many(jsx_attribute()),
+            string("/>"),
+            position(),
+        )
         .map(
-            |(start, _, name, attributes, end)| Expression::JsxElementExpression {
+            |(start, _, name, attributes, _, end)| Expression::JsxElementExpression {
                 name,
                 attributes,
                 children: Vec::new(),
                 loc: Some((start, end).into()),
-            },
+
+            }
         )
+    }
 }
 
-fn jsx_opening_element<'a>() -> impl Parser<
-    Input = easy::Stream<State<&'a str, SourcePosition>>,
-    Output = (String, Vec<JsxAttribute>),
-> {
-    (
-        token('<'),
-        jsx_element_name().skip(skip_tokens()),
-        many(jsx_attribute()),
-        token('>').skip(skip_tokens()),
-    )
-        .map(|(_, name, attributes, _)| (name, attributes))
+parser! {
+    fn jsx_opening_element[I]()(I) -> (String, Vec<JsxAttribute>)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('<'),
+            jsx_element_name().skip(skip_tokens()),
+            many(jsx_attribute()),
+            token('>').skip(skip_tokens()),
+        )
+            .map(|(_, name, attributes, _)| (name, attributes))
+    }
 }
 
-fn jsx_attribute<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
-    choice((try(jsx_spread_attribute()), try(jsx_attribute_key_value())))
+parser! {
+    fn jsx_attribute [I]()(I) -> JsxAttribute
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((try(jsx_spread_attribute()), try(jsx_attribute_key_value())))
+    }
 }
 
-fn jsx_spread_attribute<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
-    between(
-        token('{').skip(skip_tokens()),
-        token('}').skip(skip_tokens()),
-        string("...").with(assignment_expression()),
-    ).map(|expression| JsxAttribute::JsxSpreadAttribute { expression })
+parser! {
+    fn jsx_spread_attribute [I]()(I) -> JsxAttribute
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('{').skip(skip_tokens()),
+            token('}').skip(skip_tokens()),
+            string("...").with(assignment_expression()),
+        ).map(|expression| JsxAttribute::JsxSpreadAttribute { expression })
+    }
 }
 
-fn jsx_attribute_key_value<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = JsxAttribute> {
-    (
-        jsx_attribute_name().skip(skip_tokens()),
-        optional(try(jsx_attribute_initializer())),
-    )
+parser! {
+    fn jsx_attribute_key_value [I]()(I) -> JsxAttribute
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            jsx_attribute_name().skip(skip_tokens()),
+            optional(try(jsx_attribute_initializer())),
+        )
         .map(|(name, value)| JsxAttribute::JsxAttribute { name, value })
+    }
 }
 
-fn jsx_attribute_name<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    identifier()
+parser! {
+    fn jsx_attribute_name [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        identifier()
+    }
 }
 
-fn jsx_attribute_initializer<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    token('=').with(jsx_attribute_value())
+parser! {
+    fn jsx_attribute_initializer [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        token('=').with(jsx_attribute_value())
+    }
 }
 
-fn jsx_attribute_value<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    choice((
-        try(jsx_attribute_value_string()),
-        try(jsx_attribute_value_expression()),
-    )).skip(skip_tokens())
+parser! {
+    fn jsx_attribute_value [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(jsx_attribute_value_string()),
+            try(jsx_attribute_value_expression()),
+            try(jsx_element()),
+        )).skip(skip_tokens())
+    }
 }
 
-fn jsx_attribute_value_string<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        string_literal().map(Literal::StringLiteral),
-        position(),
-    )
+parser! {
+    fn jsx_attribute_value_string [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            string_literal().map(Literal::StringLiteral),
+            position(),
+        )
         .map(|(start, value, end)| Expression::Literal {
             value,
             loc: Some((start, end).into()),
         })
+    }
 }
 
-fn jsx_attribute_value_expression<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    between(
-        token('{').skip(skip_tokens()),
-        token('}'),
-        assignment_expression(),
-    )
+parser! {
+    fn jsx_attribute_value_expression [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('{').skip(skip_tokens()),
+            token('}'),
+            assignment_expression(),
+        )
+    }
 }
 
-fn jsx_closing_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = String> {
-    between(string("</"), token('>'), jsx_element_name())
+parser! {
+    fn jsx_closing_element [I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(string("</"), token('>'), jsx_element_name())
+    }
 }
 
-fn jsx_matched_element<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Expression> {
-    (
-        position(),
-        jsx_opening_element(),
-        jsx_closing_element(),
-        position(),
-    )
+parser! {
+    fn jsx_matched_element [I]()(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            jsx_opening_element(),
+            jsx_closing_element(),
+            position(),
+        )
         .then(|(start, (opening_name, attributes), closing_name, end)| {
             if opening_name == closing_name {
                 value(Expression::JsxElementExpression {
@@ -1010,90 +1240,104 @@ fn jsx_matched_element<'a>(
                         children: Vec::new(),
                         loc: None,
                     }).message("closing name is not the same as opening name")
-                    .right()
+                .right()
             }
         })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
-fn statement<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Statement> {
-    // TODO use assignment_expression instead
-    (position(), primary_expression(), position()).map(|(start, expression, end)| {
-        Statement::ExpressionStatement {
-            loc: Some((start, end).into()),
-            expression,
-        }
-    })
+parser! {
+    fn statement [I]()(I) -> Statement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        // TODO use assignment_expression instead
+        (position(), primary_expression(), position()).map(|(start, expression, end)| {
+            Statement::ExpressionStatement {
+                loc: Some((start, end).into()),
+                expression,
+            }
+        })
+    }
 }
-
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
-fn formal_parameters<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<Pattern>> {
-    between(
-        token('(').skip(skip_tokens()),
-        token(')'),
-        value(Vec::new()),
-    )
+parser! {
+    fn formal_parameters [I]()(I) -> Vec<Pattern>
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('(').skip(skip_tokens()),
+            token(')'),
+            value(Vec::new()),
+        )
+    }
 }
 
-fn formal_parameter<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Pattern> {
-    (position(), identifier(), position()).map(|(start, name, end)| Pattern::Identifier {
-        name,
-        loc: Some((start, end).into()),
-    })
+parser! {
+    fn formal_parameter [I]()(I) -> Pattern
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), identifier(), position()).map(|(start, name, end)| Pattern::Identifier {
+            name,
+            loc: Some((start, end).into()),
+        })
+    }
 }
 
-fn function_body<'a>(
-    _yield: bool,
-    _await: bool,
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Vec<FunctionBodyStatement>>
-{
-    between(
-        token('{').skip(skip_tokens()),
-        token('}'),
-        value(Vec::new()),
-    )
+parser! {
+    fn function_body[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Vec<FunctionBodyStatement>
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        between(
+            token('{').skip(skip_tokens()),
+            token('}'),
+            value(Vec::new()),
+        )
+    }
 }
 
-fn method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    choice((
-        try(getter_method_definition()),
-        try(setter_method_definition()),
-        try(generator_method_definition()),
-        try(async_generator_method_definition()),
-        try(async_method_definition()),
-        basic_method_definition(false, false),
-    ))
+parser! {
+    fn method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(getter_method_definition()),
+            try(setter_method_definition()),
+            try(generator_method_definition()),
+            try(async_generator_method_definition()),
+            try(async_method_definition()),
+            basic_method_definition(false, false),
+        ))
+    }
 }
 
-fn basic_method_definition<'a>(
-    _yield: bool,
-    _await: bool,
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        position(),
-        property_name(),
-        skip_tokens(),
-        formal_parameters(),
-        skip_tokens(),
-        function_body(_yield, _await),
-        // lololol
-        // the value here is just to pass the yield and await into the map below
-        value(_yield),
-        value(_await),
-        position(),
-    )
+parser! {
+    fn basic_method_definition[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            property_name(),
+            skip_tokens(),
+            formal_parameters(),
+            skip_tokens(),
+            function_body(*_yield, *_await),
+            position(),
+        )
         .map(
-            |(start, (key, computed), _, params, _, body, _yield, _await, end)| Property {
+            |(start, (key, computed), _, params, _, body, end)| Property {
                 key,
                 value: Expression::FunctionExpression {
                     id: None,
-                    async: _await,
-                    generator: _yield,
+                    async: *_await,
+                    generator: *_yield,
                     body,
                     params,
                 },
@@ -1104,51 +1348,63 @@ fn basic_method_definition<'a>(
                 loc: Some((start, end).into()),
             },
         )
+    }
 }
 
-fn generator_method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        token('*'),
-        skip_tokens(),
-        basic_method_definition(true, false),
-    )
+parser! {
+    fn generator_method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('*'),
+            skip_tokens(),
+            basic_method_definition(true, false),
+        )
         .map(|x| x.2)
+    }
 }
 
-fn async_method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        string("async"),
-        skip_tokens(),
-        basic_method_definition(false, true),
-    )
+parser! {
+    fn async_method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            string("async"),
+            skip_tokens(),
+            basic_method_definition(false, true),
+        )
         .map(|x| x.2)
+    }
 }
 
-fn async_generator_method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        string("async"),
-        skip_tokens(),
-        token('*'),
-        skip_tokens(),
-        basic_method_definition(true, true),
-    )
-        .map(|x| x.4)
+parser! {
+    fn async_generator_method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            string("async"),
+            skip_tokens(),
+            token('*'),
+            skip_tokens(),
+            basic_method_definition(true, true),
+        )
+            .map(|x| x.4)
+    }
 }
 
-fn getter_method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        position(),
-        string("get").skip(skip_tokens()),
-        property_name().skip(skip_tokens()),
-        token('(').skip(skip_tokens()),
-        token(')').skip(skip_tokens()),
-        function_body(false, false),
-        position(),
-    )
+parser! {
+    fn getter_method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            string("get").skip(skip_tokens()),
+            property_name().skip(skip_tokens()),
+            token('(').skip(skip_tokens()),
+            token(')').skip(skip_tokens()),
+            function_body(false, false),
+            position(),
+        )
         .map(|(start, _, (key, computed), _, _, body, end)| Property {
             key,
             value: Expression::FunctionExpression {
@@ -1164,22 +1420,25 @@ fn getter_method_definition<'a>(
             computed,
             loc: Some((start, end).into()),
         })
+    }
 }
 
-fn setter_method_definition<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Property> {
-    (
-        position(),
-        string("set").skip(skip_tokens()),
-        property_name().skip(skip_tokens()),
-        between(
-            token('(').skip(skip_tokens()),
-            token(')').skip(skip_tokens()),
-            formal_parameter().skip(skip_tokens()),
-        ),
-        function_body(false, false),
-        position(),
-    )
+parser! {
+    fn setter_method_definition [I]()(I) -> Property
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            string("set").skip(skip_tokens()),
+            property_name().skip(skip_tokens()),
+            between(
+                token('(').skip(skip_tokens()),
+                token(')').skip(skip_tokens()),
+                formal_parameter().skip(skip_tokens()),
+            ),
+            function_body(false, false),
+            position(),
+        )
         .map(|(start, _, (key, computed), param, body, end)| Property {
             key,
             value: Expression::FunctionExpression {
@@ -1195,23 +1454,27 @@ fn setter_method_definition<'a>(
             computed,
             loc: Some((start, end).into()),
         })
+    }
 }
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-scripts-and-modules
-fn program<'a>(
-) -> impl Parser<Input = easy::Stream<State<&'a str, SourcePosition>>, Output = Program> {
-    (
-        position(),
-        skip_tokens(),
-        many::<Vec<_>, _>(statement().skip(skip_tokens())),
-        eof(),
-        position(),
-    )
-        .map(|(start, _, body, _, end)| Program::Program {
-            source_type: SourceType::Script,
-            body,
-            loc: Some((start, end).into()),
-        })
+parser! {
+    fn program[I]()(I) -> Program
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            skip_tokens(),
+            many::<Vec<_>, _>(statement().skip(skip_tokens())),
+            eof(),
+            position(),
+        )
+            .map(|(start, _, body, _, end)| Program::Program {
+                source_type: SourceType::Script,
+                body,
+                loc: Some((start, end).into()),
+            })
+    }
 }
 
 /// The main entry point to the parser. This function will return a fully constructed
