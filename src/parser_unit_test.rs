@@ -13,11 +13,23 @@ macro_rules! assert_parse_success {
             Ok($result)
         );
     };
+    ($parser:ident ($($args:expr),*), $input:expr, $result:expr) => {
+        assert_eq!(
+            ($parser($($args),*), eof())
+                .map(|x| x.0)
+                .easy_parse(State::new($input))
+                .map(|x| x.0),
+            Ok($result)
+        );
+    };
 }
 
 macro_rules! assert_parse_failure {
     ($parser:ident, $input:expr) => {
         assert!(($parser(), eof()).easy_parse(State::new($input)).is_err());
+    };
+    ($parser:ident ($($args:expr),*), $input:expr) => {
+        assert!(($parser($($args),*), eof()).easy_parse(State::new($input)).is_err());
     };
 }
 
@@ -311,7 +323,7 @@ fn test_regex_literal_flags() {
 #[test]
 fn test_template_element_empty() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "``",
         Expression::TemplateLiteral {
             quasis: vec![TemplateElement {
@@ -328,7 +340,7 @@ fn test_template_element_empty() {
 #[test]
 fn test_template_element_no_expressions() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "`asd`",
         Expression::TemplateLiteral {
             quasis: vec![TemplateElement {
@@ -345,7 +357,7 @@ fn test_template_element_no_expressions() {
 #[test]
 fn test_template_element_template_single_expression() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "`asd ${yield} asd`",
         Expression::TemplateLiteral {
             quasis: vec![
@@ -372,7 +384,7 @@ fn test_template_element_template_single_expression() {
 #[test]
 fn test_template_element_template_multiple_expressions() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "`asd ${yield} asd ${yield} asd`",
         Expression::TemplateLiteral {
             quasis: vec![
@@ -438,7 +450,7 @@ fn test_template_element_template_character() {
 #[test]
 fn test_primary_expression_this() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "this",
         Expression::ThisExpression {
             loc: Some(((1, 0), (1, 4)).into())
@@ -449,7 +461,7 @@ fn test_primary_expression_this() {
 #[test]
 fn test_primary_expression_identifier_reference() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "abc123",
         Expression::Identifier {
             loc: Some(((1, 0), (1, 6)).into()),
@@ -461,7 +473,7 @@ fn test_primary_expression_identifier_reference() {
 #[test]
 fn test_primary_expression_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "null",
         Expression::Literal {
             value: Literal::NullLiteral(NullLiteral),
@@ -469,7 +481,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "true",
         Expression::Literal {
             value: Literal::BooleanLiteral(BooleanLiteral(true)),
@@ -477,7 +489,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "false",
         Expression::Literal {
             value: Literal::BooleanLiteral(BooleanLiteral(false)),
@@ -485,7 +497,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "123.e1",
         Expression::Literal {
             value: Literal::NumericLiteral(NumericLiteral(1230f64)),
@@ -493,7 +505,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "'abc'",
         Expression::Literal {
             value: Literal::StringLiteral(StringLiteral("abc".to_string())),
@@ -501,7 +513,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "/\\a/",
         Expression::Literal {
             value: Literal::RegExpLiteral(RegExpLiteral {
@@ -516,7 +528,7 @@ fn test_primary_expression_literal() {
 #[test]
 fn test_primary_expression_array_literal_empty() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "[]",
         Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 2)).into()),
@@ -528,7 +540,7 @@ fn test_primary_expression_array_literal_empty() {
 #[test]
 fn test_primary_expression_array_literal_elision() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "[,,,,]",
         Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 6)).into()),
@@ -540,7 +552,7 @@ fn test_primary_expression_array_literal_elision() {
 #[test]
 fn test_primary_expression_array_literal_elision_and_elements() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "[,,,,yield,,yield,,,]",
         Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 21)).into()),
@@ -557,7 +569,7 @@ fn test_primary_expression_array_literal_elision_and_elements() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "[,,,...yield,,,]",
         Expression::ArrayExpression {
             loc: Some(((1, 0), (1, 16)).into()),
@@ -575,7 +587,7 @@ fn test_primary_expression_array_literal_elision_and_elements() {
 #[test]
 fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{}",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 2)).into()),
@@ -587,7 +599,7 @@ fn test_primary_expression_object_literal_empty() {
 #[test]
 fn test_primary_expression_object_literal_shorthand() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 6)).into()),
@@ -613,7 +625,7 @@ fn test_primary_expression_object_literal_shorthand() {
 #[test]
 fn test_primary_expression_object_literal_multiple_properties() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id, id2 }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
@@ -656,7 +668,7 @@ fn test_primary_expression_object_literal_multiple_properties() {
 #[test]
 fn test_primary_expression_object_literal_multiple_properties_ending_semicolon() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id, id2, }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
@@ -699,7 +711,7 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
 #[test]
 fn test_primary_expression_object_literal_initializer() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
@@ -725,7 +737,7 @@ fn test_primary_expression_object_literal_initializer() {
 #[test]
 fn test_object_literal_initializer_string_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ 'id': true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 14)).into()),
@@ -751,7 +763,7 @@ fn test_object_literal_initializer_string_literal() {
 #[test]
 fn test_object_literal_initializer_numeric_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ 0: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
@@ -777,7 +789,7 @@ fn test_object_literal_initializer_numeric_literal() {
 #[test]
 fn test_object_literal_initializer_computed() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ [yield]: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 17)).into()),
@@ -803,7 +815,7 @@ fn test_object_literal_initializer_computed() {
 #[test]
 fn test_object_literal_method_definition() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ method() {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -832,7 +844,7 @@ fn test_object_literal_method_definition() {
 #[test]
 fn test_object_literal_method_definition_generator() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ * method() {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -861,7 +873,7 @@ fn test_object_literal_method_definition_generator() {
 #[test]
 fn test_object_literal_method_definition_async() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ async method() {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -890,7 +902,7 @@ fn test_object_literal_method_definition_async() {
 #[test]
 fn test_object_literal_method_definition_async_generator() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ async * method() {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -919,7 +931,7 @@ fn test_object_literal_method_definition_async_generator() {
 #[test]
 fn test_object_literal_method_definition_getter() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ get key() {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -948,7 +960,7 @@ fn test_object_literal_method_definition_getter() {
 #[test]
 fn test_object_literal_method_definition_setter() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ set key(value) {  } }",
         Expression::ObjectExpression {
             properties: vec![ObjectExpressionProperty::Property(Property {
@@ -980,7 +992,7 @@ fn test_object_literal_method_definition_setter() {
 #[test]
 fn test_primary_expression_jsx_self_closing() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "<div/>",
         Expression::JsxElementExpression {
             attributes: Vec::new(),
@@ -994,7 +1006,7 @@ fn test_primary_expression_jsx_self_closing() {
 #[test]
 fn test_primary_expression_jsx_opening_closing_match() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "<div>\n\n</div>",
         Expression::JsxElementExpression {
             attributes: Vec::new(),
@@ -1003,5 +1015,5 @@ fn test_primary_expression_jsx_opening_closing_match() {
             loc: Some(((1, 0), (3, 6)).into())
         }
     );
-    assert_parse_failure!(primary_expression, "<div>\n\n</v>");
+    assert_parse_failure!(primary_expression(false, false), "<div>\n\n</v>");
 }
