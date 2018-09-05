@@ -886,7 +886,7 @@ parser! {
         many(
             choice((
                 try(assignment_expression(*_yield, *_await)).map(ExpressionListItem::Expression),
-                spread_element(*_yield, *_await),
+                try(spread_element(*_yield, *_await)),
             )).skip(elision()),
         )
     }
@@ -1097,10 +1097,10 @@ parser! {
         (
             string("yield").skip(skip_tokens()),
             optional(token('*').skip(skip_tokens())),
-            assignment_expression(true, *_await).skip(skip_tokens()),
+            optional(try(assignment_expression(true, *_await).skip(skip_tokens()))),
         )
         .map(|(_, delegate_token, argument)| Expression::Yield {
-            argument: Some(Box::new(argument)),
+            argument: argument.map(Box::new),
             delegate: delegate_token.is_some(),
         })
     }
