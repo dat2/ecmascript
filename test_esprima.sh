@@ -2,6 +2,8 @@
 TESTS_RUN=0
 TESTS_FAILED=0
 
+cargo build
+
 for SRC in esprima/test/fixtures/{JSX,expression}/**/*.js; do
     TESTS_RUN=$((TESTS_RUN+1))
 
@@ -14,6 +16,7 @@ for SRC in esprima/test/fixtures/{JSX,expression}/**/*.js; do
         TESTS_FAILED=$((TESTS_FAILED + 1))
     else
         echo -e "\e[32m$SRC: passed\e[0m"
+        echo "$SRC_TEXT"
     fi
 
     #OUT="${SRC%.js}.json"

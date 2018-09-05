@@ -57,7 +57,7 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-comments
 parser! {
-    fn comment[I]()(I) -> ()
+    pub fn comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         try(block_comment()).or(line_comment())
@@ -152,7 +152,7 @@ parser! {
 
 // TODO strict mode
 parser! {
-    fn identifier[I]()(I) -> String
+    pub fn identifier[I]()(I) -> String
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (unicode_id_start(), many(unicode_id_continue()))
@@ -238,7 +238,7 @@ lazy_static! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-null-literals
 parser! {
-    fn null_literal[I]()(I) -> NullLiteral
+    pub fn null_literal[I]()(I) -> NullLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         string("null").map(|_| NullLiteral)
@@ -247,7 +247,7 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-boolean-literals
 parser! {
-    fn boolean_literal[I]()(I) -> BooleanLiteral
+    pub fn boolean_literal[I]()(I) -> BooleanLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (choice((
@@ -259,7 +259,7 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 parser! {
-    fn numeric_literal[I]()(I) -> NumericLiteral
+    pub fn numeric_literal[I]()(I) -> NumericLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (choice((
@@ -365,7 +365,7 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
 parser! {
-    fn string_literal[I]()(I) -> StringLiteral
+    pub fn string_literal[I]()(I) -> StringLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
@@ -528,7 +528,7 @@ parser! {
 }
 
 parser! {
-    fn regex_literal[I]()(I) -> RegExpLiteral
+    pub fn regex_literal[I]()(I) -> RegExpLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
@@ -602,17 +602,20 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-template-literal-lexical-components
 parser! {
-    fn template_literal [I]()(I) -> Expression
+    fn template_literal [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
             choice((
-                    try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
-                    try(substitution_template()),
-                    )),
-                    position(),
-                    )
+                try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
+                try(substitution_template(*_yield, *_await)),
+            )),
+            position(),
+        )
             .map(
                 |(start, (quasis, expressions), end)| Expression::TemplateLiteral {
                     quasis,
@@ -633,26 +636,29 @@ parser! {
                 token('`'),
                 token('`'),
                 many::<Vec<_>, _>(template_character()),
-                ),
-                position(),
-                )
-            .map(|(start, pairs, end)| {
-                let cooked = pairs.iter().cloned().map(|x| x.0).collect();
-                let raw = pairs.iter().cloned().map(|x| x.1).collect();
-                TemplateElement {
-                    cooked: Some(cooked),
-                    raw,
-                    loc: Some((start, end).into()),
-                }
-            })
+            ),
+            position(),
+        )
+        .map(|(start, pairs, end)| {
+            let cooked = pairs.iter().cloned().map(|x| x.0).collect();
+            let raw = pairs.iter().cloned().map(|x| x.1).collect();
+            TemplateElement {
+                cooked: Some(cooked),
+                raw,
+                loc: Some((start, end).into()),
+            }
+        })
     }
 }
 
 parser! {
-    fn substitution_template[I]()(I) -> (Vec<TemplateElement>, Vec<Expression>)
+    fn substitution_template[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> (Vec<TemplateElement>, Vec<Expression>)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (template_head(), assignment_expression(), template_spans()).map(
+        (template_head(), assignment_expression(*_yield, *_await), template_spans(*_yield, *_await)).map(
             |(quasi, expression, (mut quasis_span, mut expressions_span))| {
                 let mut quasis = vec![quasi];
                 quasis.append(&mut quasis_span);
@@ -690,11 +696,14 @@ parser! {
 }
 
 parser! {
-    fn template_spans[I]()(I) -> (Vec<TemplateElement>, Vec<Expression>)
+    fn template_spans[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> (Vec<TemplateElement>, Vec<Expression>)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
-            many::<Vec<_>, _>(try((template_middle(), assignment_expression()))),
+            many::<Vec<_>, _>(try((template_middle(), assignment_expression(*_yield, *_await)))),
             template_tail(),
         )
             .map(|(quasis_expressions, tail)| {
@@ -711,7 +720,7 @@ parser! {
 }
 
 parser! {
-    fn template_character [I]()(I) -> (char, String)
+    pub fn template_character [I]()(I) -> (char, String)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
@@ -775,18 +784,21 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
 parser! {
-    fn primary_expression [I]()(I) -> Expression
+    pub fn primary_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
             try(this()),
             try(identifier_expression()),
             try(literal()),
-            try(array_literal()),
-            try(object_literal()),
+            try(array_literal(*_yield, *_await)),
+            try(object_literal(*_yield, *_await)),
             try(regex_literal_expression()),
-            try(template_literal()),
-            try(jsx_element()),
+            try(template_literal(*_yield, *_await)),
+            try(jsx_element(*_yield, *_await)),
         ))
     }
 }
@@ -834,7 +846,10 @@ parser! {
 }
 
 parser! {
-    fn array_literal [I]()(I) -> Expression
+    fn array_literal [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
@@ -842,14 +857,14 @@ parser! {
             between(
                 token('[').skip(skip_tokens()),
                 token(']').skip(skip_tokens()),
-                elision().with(element_list()).skip(elision()),
-                ),
-                position(),
-                )
-            .map(|(start, elements, end)| Expression::ArrayExpression {
-                elements,
-                loc: Some((start, end).into()),
-            })
+                elision().with(element_list(*_yield, *_await)).skip(elision()),
+            ),
+            position(),
+        )
+        .map(|(start, elements, end)| Expression::ArrayExpression {
+            elements,
+            loc: Some((start, end).into()),
+        })
     }
 }
 
@@ -862,20 +877,26 @@ parser! {
 }
 
 parser! {
-    fn element_list [I]()(I) -> Vec<ExpressionListItem>
+    fn element_list [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Vec<ExpressionListItem>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         many(
             choice((
-                    try(assignment_expression()).map(ExpressionListItem::Expression),
-                    spread_element(),
-                    )).skip(elision()),
-                    )
+                try(assignment_expression(*_yield, *_await)).map(ExpressionListItem::Expression),
+                spread_element(*_yield, *_await),
+            )).skip(elision()),
+        )
     }
 }
 
 parser! {
-    fn object_literal [I]()(I) -> Expression
+    fn object_literal [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
@@ -884,12 +905,12 @@ parser! {
                 token('{').skip(skip_tokens()),
                 token('}').skip(skip_tokens()),
                 sep_end_by(
-                    property_definition().skip(skip_tokens()),
+                    property_definition(*_yield, *_await).skip(skip_tokens()),
                     token(',').skip(skip_tokens()),
-                    ),
-                    ),
-                    position(),
-                    )
+                ),
+            ),
+            position(),
+        )
             .map(|(start, properties, end)| Expression::ObjectExpression {
                 loc: Some((start, end).into()),
                 properties,
@@ -898,14 +919,17 @@ parser! {
 }
 
 parser! {
-    fn property_definition [I]()(I) -> ObjectExpressionProperty
+    fn property_definition [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> ObjectExpressionProperty
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-                try(property_initializer()).map(ObjectExpressionProperty::Property),
-                try(method_definition()).map(ObjectExpressionProperty::Property),
-                try(shorthand_property()).map(ObjectExpressionProperty::Property),
-                ))
+            try(property_initializer(*_yield, *_await)).map(ObjectExpressionProperty::Property),
+            try(method_definition(*_yield, *_await)).map(ObjectExpressionProperty::Property),
+            try(shorthand_property()).map(ObjectExpressionProperty::Property),
+        ))
     }
 }
 
@@ -926,39 +950,45 @@ parser! {
 }
 
 parser! {
-    fn property_initializer [I]()(I) -> Property
+    fn property_initializer [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
-            property_name(),
+            property_name(*_yield, *_await),
             skip_tokens(),
             token(':'),
             skip_tokens(),
             literal(),
             position(),
-            )
-            .map(|(start, (key, computed), _, _, _, value, end)| Property {
-                key,
-                value,
-                kind: PropertyKind::Init,
-                method: false,
-                shorthand: false,
-                computed,
-                loc: Some((start, end).into()),
-            })
+        )
+        .map(|(start, (key, computed), _, _, _, value, end)| Property {
+            key,
+            value,
+            kind: PropertyKind::Init,
+            method: false,
+            shorthand: false,
+            computed,
+            loc: Some((start, end).into()),
+        })
     }
 }
 
 parser! {
-    fn property_name [I]()(I) -> (Expression, bool)
-        where [I: Stream<Item=char, Position=SourcePosition>]
-        {
-            choice((
-                    try(literal_property_name()).map(|e| (e, false)),
-                    try(computed_property_name()).map(|e| (e, true)),
-                    ))
-        }
+    fn property_name [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> (Expression, bool)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(literal_property_name()).map(|e| (e, false)),
+            try(computed_property_name(*_yield, *_await)).map(|e| (e, true)),
+        ))
+    }
 }
 
 parser! {
@@ -982,24 +1012,30 @@ parser! {
 }
 
 parser! {
-    fn computed_property_name [I]()(I) -> Expression
+    fn computed_property_name [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         between(
             token('[').skip(skip_tokens()),
             token(']'),
-            assignment_expression(),
+            assignment_expression(*_yield, *_await),
         )
     }
 }
 
 parser! {
-    fn spread_element [I]()(I) -> ExpressionListItem
+    fn spread_element [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> ExpressionListItem
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
-            string("...").with(assignment_expression()),
+            string("...").with(assignment_expression(*_yield, *_await)),
             position(),
         )
             .map(|(start, expression, end)| {
@@ -1012,27 +1048,33 @@ parser! {
 }
 
 parser! {
-    fn assignment_expression[I]()(I) -> Expression
+    fn assignment_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(yield_expression()),
-            try(conditional_expression()),
+            try(conditional_expression(*_yield, *_await)),
+            try(yield_expression(*_await))
         ))
     }
 }
 
 parser! {
-    fn conditional_expression[I]()(I) -> Expression
+    fn conditional_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
-            primary_expression().skip(skip_tokens()),
+            primary_expression(*_yield, *_await).skip(skip_tokens()),
             token('?').skip(skip_tokens()),
-            assignment_expression().skip(skip_tokens()),
+            assignment_expression(*_yield, *_await).skip(skip_tokens()),
             token(':').skip(skip_tokens()),
-            assignment_expression().skip(skip_tokens()),
+            assignment_expression(*_yield, *_await).skip(skip_tokens()),
             position(),
         )
             .map(|(start, test, _, consequent, _, alternate, end)| {
@@ -1047,28 +1089,32 @@ parser! {
 }
 
 parser! {
-    fn yield_expression [I]()(I) -> Expression
+    fn yield_expression [I](
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
-            string("yield"),
-            skip_tokens(),
-            // optional((optional(token('*')), ok())),
-            skip_tokens(),
-            )
-            .map(|(_, _, _)| Expression::Yield {
-                argument: None,
-                delegate: false,
-            })
+            string("yield").skip(skip_tokens()),
+            optional(token('*').skip(skip_tokens())),
+            assignment_expression(true, *_await).skip(skip_tokens()),
+        )
+        .map(|(_, delegate_token, argument)| Expression::Yield {
+            argument: Some(Box::new(argument)),
+            delegate: delegate_token.is_some(),
+        })
     }
 }
 
 // https://facebook.github.io/jsx/
 parser! {
-    fn jsx_element [I]()(I) -> Expression
+    fn jsx_element [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        choice((try(jsx_self_closing_element()), jsx_matched_element()))
+        choice((try(jsx_self_closing_element(*_yield, *_await)), jsx_matched_element(*_yield, *_await)))
     }
 }
 
@@ -1081,14 +1127,17 @@ parser! {
 }
 
 parser! {
-    fn jsx_self_closing_element [I]()(I) -> Expression
+    fn jsx_self_closing_element [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
             token('<'),
             jsx_element_name().skip(skip_tokens()),
-            many(jsx_attribute()),
+            many(jsx_attribute(*_yield, *_await)),
             string("/>"),
             position(),
         )
@@ -1105,13 +1154,16 @@ parser! {
 }
 
 parser! {
-    fn jsx_opening_element[I]()(I) -> (String, Vec<JsxAttribute>)
+    fn jsx_opening_element[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> (String, Vec<JsxAttribute>)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             token('<'),
             jsx_element_name().skip(skip_tokens()),
-            many(jsx_attribute()),
+            many(jsx_attribute(*_yield, *_await)),
             token('>').skip(skip_tokens()),
         )
             .map(|(_, name, attributes, _)| (name, attributes))
@@ -1119,32 +1171,41 @@ parser! {
 }
 
 parser! {
-    fn jsx_attribute [I]()(I) -> JsxAttribute
+    fn jsx_attribute [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> JsxAttribute
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        choice((try(jsx_spread_attribute()), try(jsx_attribute_key_value())))
+        choice((try(jsx_spread_attribute(*_yield, *_await)), try(jsx_attribute_key_value(*_yield, *_await))))
     }
 }
 
 parser! {
-    fn jsx_spread_attribute [I]()(I) -> JsxAttribute
+    fn jsx_spread_attribute [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> JsxAttribute
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         between(
             token('{').skip(skip_tokens()),
             token('}').skip(skip_tokens()),
-            string("...").with(assignment_expression()),
+            string("...").skip(skip_tokens()).with(assignment_expression(*_yield, *_await)),
         ).map(|expression| JsxAttribute::JsxSpreadAttribute { expression })
     }
 }
 
 parser! {
-    fn jsx_attribute_key_value [I]()(I) -> JsxAttribute
+    fn jsx_attribute_key_value [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> JsxAttribute
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             jsx_attribute_name().skip(skip_tokens()),
-            optional(try(jsx_attribute_initializer())),
+            optional(try(jsx_attribute_initializer(*_yield, *_await))),
         )
         .map(|(name, value)| JsxAttribute::JsxAttribute { name, value })
     }
@@ -1159,21 +1220,27 @@ parser! {
 }
 
 parser! {
-    fn jsx_attribute_initializer [I]()(I) -> Expression
+    fn jsx_attribute_initializer[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        token('=').with(jsx_attribute_value())
+        token('=').with(jsx_attribute_value(*_yield, *_await))
     }
 }
 
 parser! {
-    fn jsx_attribute_value [I]()(I) -> Expression
+    fn jsx_attribute_value[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
             try(jsx_attribute_value_string()),
-            try(jsx_attribute_value_expression()),
-            try(jsx_element()),
+            try(jsx_attribute_value_expression(*_yield, *_await)),
+            try(jsx_element(*_yield, *_await)),
         )).skip(skip_tokens())
     }
 }
@@ -1195,13 +1262,16 @@ parser! {
 }
 
 parser! {
-    fn jsx_attribute_value_expression [I]()(I) -> Expression
+    fn jsx_attribute_value_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         between(
             token('{').skip(skip_tokens()),
             token('}'),
-            assignment_expression(),
+            assignment_expression(*_yield, *_await),
         )
     }
 }
@@ -1215,12 +1285,15 @@ parser! {
 }
 
 parser! {
-    fn jsx_matched_element [I]()(I) -> Expression
+    fn jsx_matched_element [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
-            jsx_opening_element(),
+            jsx_opening_element(*_yield, *_await),
             jsx_closing_element(),
             position(),
         )
@@ -1252,7 +1325,7 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         // TODO use assignment_expression instead
-        (position(), primary_expression(), position()).map(|(start, expression, end)| {
+        (position(), primary_expression(true, true), position()).map(|(start, expression, end)| {
             Statement::ExpressionStatement {
                 loc: Some((start, end).into()),
                 expression,
@@ -1301,12 +1374,15 @@ parser! {
 }
 
 parser! {
-    fn method_definition [I]()(I) -> Property
+    fn method_definition [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(getter_method_definition()),
-            try(setter_method_definition()),
+            try(getter_method_definition(*_yield, *_await)),
+            try(setter_method_definition(*_yield, *_await)),
             try(generator_method_definition()),
             try(async_generator_method_definition()),
             try(async_method_definition()),
@@ -1324,7 +1400,7 @@ parser! {
     {
         (
             position(),
-            property_name(),
+            property_name(*_yield, *_await),
             skip_tokens(),
             formal_parameters(),
             skip_tokens(),
@@ -1393,13 +1469,16 @@ parser! {
 }
 
 parser! {
-    fn getter_method_definition [I]()(I) -> Property
+    fn getter_method_definition [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
             string("get").skip(skip_tokens()),
-            property_name().skip(skip_tokens()),
+            property_name(*_yield, *_await).skip(skip_tokens()),
             token('(').skip(skip_tokens()),
             token(')').skip(skip_tokens()),
             function_body(false, false),
@@ -1424,13 +1503,16 @@ parser! {
 }
 
 parser! {
-    fn setter_method_definition [I]()(I) -> Property
+    fn setter_method_definition [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
             string("set").skip(skip_tokens()),
-            property_name().skip(skip_tokens()),
+            property_name(*_yield, *_await).skip(skip_tokens()),
             between(
                 token('(').skip(skip_tokens()),
                 token(')').skip(skip_tokens()),
