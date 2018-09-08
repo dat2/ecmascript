@@ -4,6 +4,7 @@
 //! This parser uses the error type from failure to make error interop easier for users.
 
 use ast::*;
+use combine::error::{ParseError, StreamError};
 use combine::parser::char::{char, crlf, digit, hex_digit, newline, spaces, string};
 use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
@@ -12,7 +13,7 @@ use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
 use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
-use combine::stream::Stream;
+use combine::stream::{Stream, StreamErrorFor};
 use combine::{eof, Parser};
 use failure::{self, Error};
 use std::collections::HashSet;
@@ -1055,14 +1056,30 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
+            try(assignment_expression_inner_equal(*_yield, *_await)),
+            try(assignment_expression_inner_operators(*_yield, *_await)),
             try(conditional_expression(*_yield, *_await)),
-            try(yield_expression(*_await))
+            try(yield_expression(*_await)),
         ))
     }
 }
 
 parser! {
     fn conditional_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        choice((
+            try(primary_expression(*_yield, *_await)),
+            try(conditional_expression_inner(*_yield, *_await)),
+        ))
+    }
+}
+
+parser! {
+    fn conditional_expression_inner[I](
         _yield: bool,
         _await: bool
     )(I) -> Expression
@@ -1103,6 +1120,76 @@ parser! {
             argument: argument.map(Box::new),
             delegate: delegate_token.is_some(),
         })
+    }
+}
+
+parser! {
+    fn assignment_expression_inner_equal[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [
+        I: Stream<Item=char, Position=SourcePosition>,
+        I::Error: ParseError<char, I::Range, I::Position>
+    ]
+    {
+        (
+            left_hand_side_expression(*_yield, *_await).skip(skip_tokens()),
+            token('=').skip(skip_tokens()),
+            assignment_expression(*_yield, *_await)
+        ).and_then(|(left, _, right)| {
+            left.into_pattern()
+                .map_err(|err| StreamErrorFor::<I>::unexpected_message(err.to_string()))
+                .map(|left| Expression::AssignmentExpression {
+                    operator: AssignmentOperator::Eq,
+                    left: Box::new(left),
+                    right: Box::new(right)
+                })
+        })
+    }
+}
+
+parser! {
+    fn assignment_expression_inner_operators[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        assignment_expression_inner_equal(*_yield, *_await)
+    }
+}
+
+parser! {
+    fn left_hand_side_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        new_expression(*_yield, *_await)
+    }
+}
+
+parser! {
+    fn new_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        member_expression(*_yield, *_await)
+    }
+}
+
+parser! {
+    fn member_expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        primary_expression(*_yield, *_await)
     }
 }
 
@@ -1334,13 +1421,79 @@ parser! {
     }
 }
 
+parser! {
+    fn expression[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Expression
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            assignment_expression(*_yield, *_await),
+            expression_inner(*_yield, *_await),
+        ).map(|(lhs, optional_rhs)| {
+            match optional_rhs {
+                Some(Expression::SequenceExpression { expressions }) => {
+                    let mut rest = vec![lhs];
+                    rest.extend(expressions);
+                    Expression::SequenceExpression {
+                        expressions: rest
+                    }
+                },
+                Some(rhs) => {
+                    Expression::SequenceExpression {
+                        expressions: vec![lhs, rhs]
+                    }
+                },
+                None => lhs
+            }
+        })
+    }
+}
+
+parser! {
+    fn expression_inner[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Option<Expression>
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        optional(try((
+            token(',').skip(skip_tokens()),
+            assignment_expression(*_yield, *_await),
+            expression_inner(*_yield, *_await)
+        ).map(|(_, rhs, rest_optional)| match rest_optional {
+            Some(Expression::SequenceExpression { expressions }) => {
+                let mut rest = vec![rhs];
+                rest.extend(expressions);
+                Expression::SequenceExpression {
+                    expressions: rest
+                }
+            },
+            Some(expr) => {
+                Expression::SequenceExpression {
+                    expressions: vec![rhs, expr]
+                }
+            },
+            None => rhs
+        })))
+    }
+}
+
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
 parser! {
     fn statement [I]()(I) -> Statement
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        // TODO use assignment_expression instead
-        (position(), primary_expression(true, true), position()).map(|(start, expression, end)| {
+        expression_statement()
+    }
+}
+
+parser! {
+    fn expression_statement [I]()(I) -> Statement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (position(), expression(true, true), position()).map(|(start, expression, end)| {
             Statement::ExpressionStatement {
                 loc: Some((start, end).into()),
                 expression,
@@ -1348,8 +1501,8 @@ parser! {
         })
     }
 }
-// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 
+// https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-functions-and-classes
 parser! {
     fn formal_parameters [I]()(I) -> Vec<Pattern>
     where [I: Stream<Item=char, Position=SourcePosition>]

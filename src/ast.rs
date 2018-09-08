@@ -7,6 +7,15 @@
 //! module as they abstract away the types in such a way so that the user of the library
 //! feels as if they are working with source text almost directly.
 
+/// ReferenceError represents a failure when trying to convert an expression into a pattern.
+#[derive(Debug, Fail)]
+pub enum ReferenceError {
+    /// This represents an error when you are trying to assign an expression to the lhs that
+    /// can't be assigned to. (eg. 1 = 1)
+    #[fail(display = "ReferenceError: Invalid left-hand side in assignment")]
+    InvalidLeftHandSide,
+}
+
 /// Position is a line and a column. The line is 1 indexed, and column is 0 indexed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Position {
@@ -369,6 +378,18 @@ pub enum Expression {
         /// The source location in code
         loc: Option<SourceLocation>,
     },
+}
+
+impl Expression {
+    /// This allows us to convert an expression into a pattern, in the case of assignment
+    /// expression. We need to parse a LeftHandSideExpression, but it needs to be coerced into a
+    /// Pattern
+    pub fn into_pattern(self) -> Result<Pattern, ReferenceError> {
+        match self {
+            Expression::Identifier { name, loc } => Ok(Pattern::Identifier { name, loc }),
+            _ => Err(ReferenceError::InvalidLeftHandSide),
+        }
+    }
 }
 
 /// A pattern is any way you can destructure an object or array.
