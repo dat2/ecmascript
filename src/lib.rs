@@ -16,11 +16,15 @@ extern crate unicode_xid;
 extern crate serde_derive;
 
 extern crate serde;
+#[cfg(test)]
+extern crate serde_json;
 
 #[macro_use]
 mod macros;
 pub mod ast;
 mod parser;
+#[cfg(test)]
+mod parser_fixture_tests;
 #[cfg(test)]
 mod parser_unit_test;
 

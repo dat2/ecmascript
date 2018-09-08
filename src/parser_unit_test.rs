@@ -994,7 +994,7 @@ fn test_primary_expression_jsx_self_closing() {
     assert_parse_success!(
         primary_expression(false, false),
         "<div/>",
-        Expression::JsxElementExpression {
+        Expression::JSXElement {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
@@ -1008,7 +1008,7 @@ fn test_primary_expression_jsx_opening_closing_match() {
     assert_parse_success!(
         primary_expression(false, false),
         "<div>\n\n</div>",
-        Expression::JsxElementExpression {
+        Expression::JSXElement {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),

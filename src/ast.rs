@@ -350,7 +350,7 @@ pub enum Expression {
     /// The JsxElement is an inlined expression of the form:
     /// <name key={value}>
     /// The JsxElement must be matched by a closing element, or else it is a syntax error.
-    JsxElementExpression {
+    JSXElement {
         /// The name of the element to construct.
         name: String,
         /// The key={value} pairs.

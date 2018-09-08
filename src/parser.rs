@@ -1122,7 +1122,22 @@ parser! {
     fn jsx_element_name [I]()(I) -> String
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        identifier()
+        choice((
+            try(jsx_namespaced_name()),
+            identifier()
+        ))
+    }
+}
+
+parser! {
+    fn jsx_namespaced_name[I]()(I) -> String
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            identifier(),
+            string(":"),
+            identifier()
+        ).map(|(namespace, token, id)| namespace + &token+ &id)
     }
 }
 
@@ -1142,7 +1157,7 @@ parser! {
             position(),
         )
         .map(
-            |(start, _, name, attributes, _, end)| Expression::JsxElementExpression {
+            |(start, _, name, attributes, _, end)| Expression::JSXElement {
                 name,
                 attributes,
                 children: Vec::new(),
@@ -1299,7 +1314,7 @@ parser! {
         )
         .then(|(start, (opening_name, attributes), closing_name, end)| {
             if opening_name == closing_name {
-                value(Expression::JsxElementExpression {
+                value(Expression::JSXElement {
                     name: opening_name,
                     attributes,
                     children: Vec::new(),
@@ -1307,7 +1322,7 @@ parser! {
                 }).left()
             } else {
                 unexpected("closing element")
-                    .map(|_| Expression::JsxElementExpression {
+                    .map(|_| Expression::JSXElement {
                         name: String::new(),
                         attributes: Vec::new(),
                         children: Vec::new(),
