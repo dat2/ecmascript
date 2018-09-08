@@ -6,6 +6,9 @@
 //! The macros `build_ast` and `match_ast` are meant to be the public API of this
 //! module as they abstract away the types in such a way so that the user of the library
 //! feels as if they are working with source text almost directly.
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 /// ReferenceError represents a failure when trying to convert an expression into a pattern.
 #[derive(Debug, Fail)]
@@ -649,7 +652,7 @@ pub enum BinaryOperator {
 /// Assignment operators are ones that signify a chnage to the left hand side of the expression.
 ///
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-assignment-operators)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentOperator {
     /// The basic assignment statement. This changes the left hand side to become a
     /// copy of the right hand side. (eg. a = 1)
@@ -687,6 +690,71 @@ pub enum AssignmentOperator {
     /// The expoentation operator. This raises the left hand operand to the power of
     /// the right hand side. (eg 2 ** 4 is 2*2*2*2 or 16)
     ExponentiationEq,
+}
+
+impl Serialize for AssignmentOperator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let string = match self {
+            AssignmentOperator::Eq => "=",
+            AssignmentOperator::PlusEq => "+=",
+            AssignmentOperator::MinusEq => "-=",
+            AssignmentOperator::MultiplyEq => "*=",
+            AssignmentOperator::DivideEq => "/=",
+            AssignmentOperator::ModEq => "%=",
+            AssignmentOperator::ShlEq => "<<=",
+            AssignmentOperator::ShrEq => ">>=",
+            AssignmentOperator::UnsignedShrEq => ">>>=",
+            AssignmentOperator::BitwiseOrEq => "|=",
+            AssignmentOperator::BitwiseXorEq => "^=",
+            AssignmentOperator::BitwiseAndEq => "&=",
+            AssignmentOperator::ExponentiationEq => "**=",
+        };
+        serializer.serialize_str(string)
+    }
+}
+
+struct AssignmentOperatorVisitor;
+
+impl<'de> Visitor<'de> for AssignmentOperatorVisitor {
+    type Value = AssignmentOperator;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("one of =")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match value {
+            "=" => Ok(AssignmentOperator::Eq),
+            "+=" => Ok(AssignmentOperator::PlusEq),
+            "-=" => Ok(AssignmentOperator::MinusEq),
+            "*=" => Ok(AssignmentOperator::MultiplyEq),
+            "/=" => Ok(AssignmentOperator::DivideEq),
+            "%=" => Ok(AssignmentOperator::ModEq),
+            "<<=" => Ok(AssignmentOperator::ShlEq),
+            ">>=" => Ok(AssignmentOperator::ShrEq),
+            ">>>=" => Ok(AssignmentOperator::UnsignedShrEq),
+            "|=" => Ok(AssignmentOperator::BitwiseOrEq),
+            "^=" => Ok(AssignmentOperator::BitwiseAndEq),
+            "&=" => Ok(AssignmentOperator::BitwiseAndEq),
+            "**=" => Ok(AssignmentOperator::ExponentiationEq),
+            _ => Err(E::custom(format!("{} is not an operator", value))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AssignmentOperator {
+    fn deserialize<D>(deserializer: D) -> Result<AssignmentOperator, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(AssignmentOperatorVisitor)
+    }
 }
 
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
