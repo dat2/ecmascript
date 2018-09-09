@@ -403,6 +403,9 @@ pub enum ExpressionListItem {
     Expression(Expression),
     /// This prevents a spread expression from being in an invalid syntax tree.
     Spread(SpreadElement),
+    /// This is to support elision on array elements.
+    #[serde(rename = "null")]
+    Null,
 }
 
 /// A spread element is something that be spread, eg. an array or an object.

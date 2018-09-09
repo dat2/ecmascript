@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
+use combine::parser::repeat::{count, many, many1, sep_by, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
 use combine::stream::{Stream, StreamErrorFor};
@@ -855,25 +855,35 @@ parser! {
     {
         (
             position(),
-            between(
-                token('[').skip(skip_tokens()),
-                token(']').skip(skip_tokens()),
-                elision().with(element_list(*_yield, *_await)).skip(elision()),
-            ),
+            token('[').skip(skip_tokens()),
+            optional(try(elision())),
+            element_list(*_yield, *_await),
+            optional(try(elision())),
+            token(']').skip(skip_tokens()),
             position(),
         )
-        .map(|(start, elements, end)| Expression::ArrayExpression {
-            elements,
-            loc: Some((start, end).into()),
+        .map(|(start, _, elision_start, array_elements, elision_end, _, end)| {
+            let mut elements = vec![];
+            elements.extend(elision_start.unwrap_or_else(Vec::new));
+            elements.extend(array_elements);
+            elements.extend(elision_end.unwrap_or_else(Vec::new));
+            Expression::ArrayExpression {
+                elements,
+                loc: Some((start, end).into()),
+            }
         })
     }
 }
 
 parser! {
-    fn elision [I]()(I) -> ()
+    fn elision [I]()(I) -> Vec<ExpressionListItem>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        many::<Vec<_>, _>(token(',')).with(skip_tokens())
+        many(
+            token(',')
+                .skip(skip_tokens())
+                .map(|_| ExpressionListItem::Null)
+        )
     }
 }
 
@@ -884,12 +894,23 @@ parser! {
     )(I) -> Vec<ExpressionListItem>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        many(
-            choice((
-                try(assignment_expression(*_yield, *_await)).map(ExpressionListItem::Expression),
-                try(spread_element(*_yield, *_await)),
-            )).skip(elision()),
-        )
+        sep_end_by::<Vec<_>, _, _>(
+            optional(try(elision()))
+                .and(choice((
+                    try(assignment_expression(*_yield, *_await))
+                        .map(ExpressionListItem::Expression),
+                    try(spread_element(*_yield, *_await)),
+                )))
+                .skip(skip_tokens()),
+            token(',').skip(skip_tokens()),
+        ).map(|elements| {
+            let mut result = vec![];
+            for (optional_elision_elements, element) in elements {
+                result.extend(optional_elision_elements.unwrap_or_else(Vec::new));
+                result.push(element);
+            }
+            result
+        })
     }
 }
 

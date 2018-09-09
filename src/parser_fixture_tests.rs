@@ -5,6 +5,7 @@ macro_rules! assert_fixture_passes {
     ($include:expr) => {
         let src = include_str!(concat!("../esprima/test/fixtures/", $include, ".js"));
         let expected = include_str!(concat!("../esprima/test/fixtures/", $include, ".tree.json"));
+        println!("{}", src);
         assert_eq!(
             parser::parse(src).unwrap(),
             serde_json::from_str(expected).unwrap()

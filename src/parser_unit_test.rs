@@ -526,65 +526,6 @@ fn test_primary_expression_literal() {
 }
 
 #[test]
-fn test_primary_expression_array_literal_empty() {
-    assert_parse_success!(
-        primary_expression(false, false),
-        "[]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 2)).into()),
-            elements: Vec::new()
-        }
-    );
-}
-
-#[test]
-fn test_primary_expression_array_literal_elision() {
-    assert_parse_success!(
-        primary_expression(false, false),
-        "[,,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 6)).into()),
-            elements: Vec::new()
-        }
-    );
-}
-
-#[test]
-fn test_primary_expression_array_literal_elision_and_elements() {
-    assert_parse_success!(
-        primary_expression(false, false),
-        "[,,,,yield,,yield,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 21)).into()),
-            elements: vec![
-                ExpressionListItem::Expression(Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                }),
-                ExpressionListItem::Expression(Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                }),
-            ],
-        }
-    );
-    assert_parse_success!(
-        primary_expression(false, false),
-        "[,,,...yield,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 16)).into()),
-            elements: vec![ExpressionListItem::Spread(SpreadElement::SpreadElement {
-                argument: Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                },
-                loc: Some(((1, 4), (1, 12)).into()),
-            })],
-        }
-    );
-}
-
-#[test]
 fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
         primary_expression(false, false),
