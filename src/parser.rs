@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, sep_by, sep_end_by, skip_until};
+use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
 use combine::stream::{Stream, StreamErrorFor};
