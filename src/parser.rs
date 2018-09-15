@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, sep_end_by, skip_until};
+use combine::parser::repeat::{count, many, many1, sep_by, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
 use combine::stream::{Stream, StreamErrorFor};
@@ -47,12 +47,13 @@ parser! {
     fn line_terminator[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        newline()
-            .or(char('\u{000D}'))
-            .or(char('\u{2028}'))
-            .or(char('\u{2029}'))
-            .or(crlf())
-            .map(|_| ())
+        choice((
+            try(newline()),
+            try(char('\u{000D}')),
+            try(char('\u{2028}')),
+            try(char('\u{2029}')),
+            crlf()
+        )).map(|_| ())
     }
 }
 
@@ -366,7 +367,7 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-string-literals
 parser! {
-    pub fn string_literal[I]()(I) -> StringLiteral
+    fn string_literal[I]()(I) -> StringLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
@@ -380,18 +381,20 @@ parser! {
         between(
             token('"'),
             token('"'),
-            many(double_quote_string_character()),
-        )
+            many(double_quote_string_character())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
     }
 }
 
 parser! {
-    fn double_quote_string_character[I]()(I) -> char
+    fn double_quote_string_character[I]()(I) -> Option<char>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
-        escape_sequence().map(|x| x.0).or(none_of(
-            "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars(),
+        choice((
+            try(line_continuation()).map(|_| None),
+            try(escape_sequence()).map(|x| x.0).map(Some),
+            none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars()).map(Some)
         ))
     }
 }
@@ -403,19 +406,21 @@ parser! {
         between(
             token('\''),
             token('\''),
-            many(single_quote_string_character()),
-        )
+            many(single_quote_string_character())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
     }
 }
 
 parser! {
-    fn single_quote_string_character[I]()(I) -> char
+    fn single_quote_string_character[I]()(I) -> Option<char>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
-        escape_sequence()
-            .map(|x| x.0)
-            .or(none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}'".chars()))
+        choice((
+            try(line_continuation()).map(|_| None),
+            try(escape_sequence()).map(|x| x.0).map(Some),
+            none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}'".chars()).map(Some)
+        ))
     }
 }
 
@@ -427,17 +432,17 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(character_escape_sequence()),
-            try(non_escape_character_sequence()),
+            try(single_escape_character()),
+            try(non_escape_character()),
+            try(legacy_octal_escape_sequence()),
             try(hex_escape_sequence()),
-            // TODO legacy octal escape sequence
-            unicode_escape_sequence(),
+            try(unicode_escape_sequence()),
         ))
     }
 }
 
 parser! {
-    fn character_escape_sequence[I]()(I) -> (char, String)
+    fn single_escape_character[I]()(I) -> (char, String)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         token('\\')
@@ -450,6 +455,7 @@ parser! {
                     'r' => '\r',
                     't' => '\t',
                     'v' => '\u{B}',
+                    '0' => '\u{0}',
                     other => other,
                 };
                 (cooked, format!("{}{}", t, c,))
@@ -458,7 +464,107 @@ parser! {
 }
 
 parser! {
-    fn non_escape_character_sequence[I]()(I) -> (char, String)
+    fn legacy_octal_escape_sequence[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        token('\\')
+            .and(
+                choice((
+                    try(legacy_octal_escape_sequence_single_digit()),
+                    try(legacy_octal_escape_sequence_two_digits_zero_to_three()),
+                    try(legacy_octal_escape_sequence_two_digits_four_to_seven()),
+                    try(legacy_octal_escape_sequence_three_digits()),
+                ))
+            )
+            .map(|(escape, (cooked, raw)): (char, (char, String))| (cooked, escape.to_string() + &raw))
+    }
+}
+
+parser! {
+    fn octal_digit[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        one_of("01234567".chars())
+    }
+}
+
+parser! {
+    fn zero_to_three[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        one_of("0123".chars())
+    }
+}
+
+parser! {
+    fn four_to_seven[I]()(I) -> char
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        one_of("4567".chars())
+    }
+}
+
+fn octal_digit_to_u8(digit: char) -> u8 {
+    digit as u8 - '0' as u8
+}
+
+parser! {
+    fn legacy_octal_escape_sequence_single_digit[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        octal_digit()
+            .skip(not_followed_by(octal_digit()))
+            .map(|c| {
+                (octal_digit_to_u8(c) as char, c.to_string())
+            })
+    }
+}
+
+parser! {
+    fn legacy_octal_escape_sequence_two_digits_zero_to_three[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (zero_to_three(), octal_digit())
+            .skip(not_followed_by(octal_digit()))
+            .map(|(c1, c2)| {
+                (
+                    (octal_digit_to_u8(c1) * 8 + octal_digit_to_u8(c2)) as char,
+                    c1.to_string() + &c2.to_string()
+                )
+            })
+    }
+}
+
+parser! {
+    fn legacy_octal_escape_sequence_two_digits_four_to_seven[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (four_to_seven(), octal_digit())
+            .map(|(c1, c2)| {
+                (
+                    (octal_digit_to_u8(c1) * 8 + octal_digit_to_u8(c2)) as char,
+                    c1.to_string() + &c2.to_string()
+                )
+            })
+    }
+}
+
+parser! {
+    fn legacy_octal_escape_sequence_three_digits[I]()(I) -> (char, String)
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (zero_to_three(), octal_digit(), octal_digit())
+            .map(|(c1, c2, c3)| {
+                (
+                    (octal_digit_to_u8(c1) * 64 + octal_digit_to_u8(c2) * 8 + octal_digit_to_u8(c3)) as char,
+                    c1.to_string() + &c2.to_string() + &c3.to_string()
+                )
+            })
+    }
+}
+
+parser! {
+    fn non_escape_character[I]()(I) -> (char, String)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         token('\\')
@@ -513,6 +619,16 @@ parser! {
                     value((cooked, raw)).left()
                 }
             })
+    }
+}
+
+parser! {
+    fn line_continuation[I]()(I) -> ()
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (token('\\'), line_terminator())
+            .map(|_| ())
+
     }
 }
 
@@ -1080,7 +1196,15 @@ parser! {
             try(assignment_expression_inner_equal(*_yield, *_await)),
             try(assignment_expression_inner_operators(*_yield, *_await)),
             try(conditional_expression(*_yield, *_await)),
-            try(yield_expression(*_await)),
+            try(
+                if *_yield {
+                    yield_expression(*_await).left()
+                } else {
+                    unexpected("message")
+                        .map(|_| Expression::ThisExpression { loc: None })
+                        .right()
+                }
+            ),
         ))
     }
 }
@@ -1503,18 +1627,120 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-statements-and-declarations
 parser! {
-    fn statement [I]()(I) -> Statement
+    fn statement [I](
+        _yield: bool,
+        _await: bool,
+        _return: bool
+    )(I) -> Statement
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        expression_statement()
+        choice((
+            variable_statement(*_yield, *_await),
+            expression_statement(*_yield, *_await)
+        ))
     }
 }
 
 parser! {
-    fn expression_statement [I]()(I) -> Statement
+    fn variable_statement[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Statement
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (position(), expression(true, true), position()).map(|(start, expression, end)| {
+        (
+            position(),
+            string("var").skip(skip_tokens()),
+            variable_declaration_list(*_yield, *_await),
+            optional(try(token(';').skip(skip_tokens()))),
+            position(),
+        ).map(|(start, _, declarations, _, end)| Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Var,
+            declarations,
+            loc: Some((start, end).into())
+        })
+    }
+}
+
+parser! {
+    fn variable_declaration_list[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Vec<VariableDeclarator>
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        sep_by(
+            variable_declaration(*_yield, *_await),
+            token(',').skip(skip_tokens())
+        )
+    }
+}
+
+parser! {
+    fn variable_declaration[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> VariableDeclarator
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        variable_declaration_identifier(*_yield, *_await)
+    }
+}
+
+parser! {
+    fn variable_declaration_identifier[I](
+        _yield: bool,
+        _await: bool
+    )(I) -> VariableDeclarator
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            binding_identifier().skip(skip_tokens()),
+            optional(try(
+                token('=')
+                    .skip(skip_tokens())
+                    .with(assignment_expression(*_yield, *_await)
+            )))
+        ).map(|(id, init)| VariableDeclarator {
+            id,
+            init: init
+                .map(VariableDeclaratorInit::Expression)
+                .unwrap_or(VariableDeclaratorInit::Null)
+        })
+    }
+}
+
+parser! {
+    fn binding_identifier[I]()(I) -> Pattern
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            choice((
+                identifier(),
+                string("yield").map(|s| s.to_owned()),
+                string("await").map(|s| s.to_owned())
+            )),
+            position(),
+        ).map(|(start, name, end)| Pattern::Identifier {
+            name,
+            loc: Some((start, end).into())
+        })
+    }
+}
+
+parser! {
+    fn expression_statement [I](
+        _yield: bool,
+        _await: bool
+    )(I) -> Statement
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            position(),
+            expression(*_yield, *_await),
+            position()
+        ).map(|(start, expression, end)| {
             Statement::ExpressionStatement {
                 loc: Some((start, end).into()),
                 expression,
@@ -1736,7 +1962,7 @@ parser! {
         (
             position(),
             skip_tokens(),
-            many::<Vec<_>, _>(statement().skip(skip_tokens())),
+            many::<Vec<_>, _>(statement(false, false, false).skip(skip_tokens())),
             eof(),
             position(),
         )

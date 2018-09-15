@@ -133,92 +133,6 @@ fn test_number_literal_hex() {
 }
 
 #[test]
-fn test_string_literal_empty() {
-    // empty
-    assert_parse_success!(string_literal, r#""""#, StringLiteral(String::new()));
-    assert_parse_success!(string_literal, "''", StringLiteral(String::new()));
-}
-
-#[test]
-fn test_string_literal_invalid_chars() {
-    // not allowed chars
-    for not_allowed_char in "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}".chars() {
-        let double_quote_slice: &str = &format!("\"{}\"", not_allowed_char);
-        let single_quote_slice: &str = &format!("'{}'", not_allowed_char);
-        assert_parse_failure!(string_literal, double_quote_slice);
-        assert_parse_failure!(string_literal, single_quote_slice);
-    }
-}
-
-#[test]
-fn test_string_literal_character_escape_sequence() {
-    // character escape sequences
-    let escape_chars = r#"'"\bfnrtv"#.chars();
-    let escape_char_values = "\'\"\\\u{8}\u{c}\n\r\t\u{b}".chars();
-    for (escaped_character, value) in escape_chars.zip(escape_char_values) {
-        let double_quote_slice: &str = &format!("\"\\{}\"", escaped_character);
-        let single_quote_slice: &str = &format!("'\\{}'", escaped_character);
-        assert_parse_success!(
-            string_literal,
-            double_quote_slice,
-            StringLiteral(value.to_string())
-        );
-        assert_parse_success!(
-            string_literal,
-            single_quote_slice,
-            StringLiteral(value.to_string())
-        );
-    }
-    // non character escape sequences
-    assert_parse_success!(string_literal, "\"\\a\"", StringLiteral("a".to_string()));
-    assert_parse_success!(string_literal, "'\\a'", StringLiteral("a".to_string()));
-}
-
-#[test]
-fn test_string_literal_hex_escape_sequence() {
-    // hex escape sequence
-    assert_parse_success!(string_literal, r#""\x0A""#, StringLiteral("\n".to_string()));
-    assert_parse_success!(string_literal, r#"'\x0A'"#, StringLiteral("\n".to_string()));
-}
-
-#[test]
-fn test_string_literal_unicode_escape_sequence() {
-    // unicode escape sequence
-    assert_parse_success!(
-        string_literal,
-        r#""\u2764""#,
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r"'\u2764'",
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r#""\u{2764}""#,
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r"'\u{2764}'",
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_failure!(string_literal, r"'\u{110000}'");
-}
-
-#[test]
-fn test_string_literal_line_continuation_invalid() {
-    // line continuation
-    for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
-        let double_quote_slice: &str = &format!("\"\\{}\"", line_continuation_char);
-        let single_quote_slice: &str = &format!("'\\{}'", line_continuation_char);
-        assert_parse_failure!(string_literal, double_quote_slice);
-        assert_parse_failure!(string_literal, single_quote_slice);
-    }
-}
-
-#[test]
 fn test_regex_literal_empty() {
     // must be non empty
     assert_parse_failure!(regex_literal, "//");
@@ -357,7 +271,7 @@ fn test_template_element_no_expressions() {
 #[test]
 fn test_template_element_template_single_expression() {
     assert_parse_success!(
-        primary_expression(false, false),
+        primary_expression(true, false),
         "`asd ${yield} asd`",
         Expression::TemplateLiteral {
             quasis: vec![
@@ -384,7 +298,7 @@ fn test_template_element_template_single_expression() {
 #[test]
 fn test_template_element_template_multiple_expressions() {
     assert_parse_success!(
-        primary_expression(false, false),
+        primary_expression(true, false),
         "`asd ${yield} asd ${yield} asd`",
         Expression::TemplateLiteral {
             quasis: vec![
@@ -730,7 +644,7 @@ fn test_object_literal_initializer_numeric_literal() {
 #[test]
 fn test_object_literal_initializer_computed() {
     assert_parse_success!(
-        primary_expression(false, false),
+        primary_expression(true, false),
         "{ [yield]: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 17)).into()),

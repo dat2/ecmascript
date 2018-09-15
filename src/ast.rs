@@ -852,6 +852,53 @@ pub enum Statement {
         /// The source location in code where this statement starts.
         loc: Option<SourceLocation>,
     },
+    /// VariableDeclaration represents the statement that defines a variable, and possibly its
+    /// value. eg "var array = []"
+    VariableDeclaration {
+        /// Multiple variables can be defined with a single "var", eg. "var x, y, z"
+        declarations: Vec<VariableDeclarator>,
+        /// This represents whether it was a "let", "const", or "var"
+        kind: VariableDeclarationKind,
+        /// The source location in code where this statement starts
+        loc: Option<SourceLocation>,
+    },
+}
+
+/// VariableDeclarator is a struct that has a pattern and an initializer.
+/// The pattern can be an identifier, or an object destructuring pattern or array destructuring
+/// pattern.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct VariableDeclarator {
+    /// This is the "left hand side" of the declaration, eg "var x = []", "x" is the id.
+    pub id: Pattern,
+    /// This is the "right hand side", or "initial value" of the variable being declared.
+    pub init: VariableDeclaratorInit,
+}
+
+/// This enum is internal, to maintain estree compatibility
+/// Alternatively, we could write a custom serializer / deserializer to map "null" to an Option,
+/// but this was easier in the short term.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum VariableDeclaratorInit {
+    /// estree defines the init as being an expression or "null"
+    #[serde(rename = "lowercase")]
+    Null,
+    /// The declarator is usually an expression.
+    Expression(Expression),
+}
+
+/// This represents the different kinds of declarations that can occur, eg. let, const or var.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged, rename_all = "lowercase")]
+pub enum VariableDeclarationKind {
+    /// Var is a variable that is function scoped.
+    Var,
+    /// Let is a variable that can be re-assigned, but is block scoped.
+    Let,
+    /// Const is a variable that can't be re-assigned, but is not internally immutable, and is
+    /// block scoped.
+    Const,
 }
 
 /// This is the main entry point to the syntax tree. A program is a list of statements,
