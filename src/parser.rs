@@ -10,7 +10,7 @@ use combine::parser::choice::{choice, optional};
 use combine::parser::combinator::{not_followed_by, try};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
-use combine::parser::repeat::{count, many, many1, sep_by, sep_end_by, skip_until};
+use combine::parser::repeat::{count, count_min_max, many, many1, sep_by, sep_end_by, skip_until};
 use combine::parser::sequence::between;
 use combine::stream::state::{SourcePosition, State};
 use combine::stream::{Stream, StreamErrorFor};
@@ -578,7 +578,7 @@ parser! {
     fn hex_escape_sequence[I]()(I) -> (char, String)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (token('\\'), token('x'), count::<String, _>(2, hex_digit())).map(|(t, x, hex_digits)| {
+        (token('\\'), token('x'), count_min_max::<String, _>(2, 2, hex_digit())).map(|(t, x, hex_digits)| {
             let code_point = u32::from_str_radix(&hex_digits, 16).unwrap();
             let cooked = ::std::char::from_u32(code_point).unwrap();
             (cooked, format!("{}{}{}", t, x, hex_digits))
@@ -598,7 +598,7 @@ parser! {
                 (token('{'), count::<String, _>(6, hex_digit()), token('}')).map(
                     |(s, digits, e): (char, String, char)| s.to_string() + &digits + &e.to_string(),
                 ),
-                count::<String, _>(4, hex_digit()),
+                count_min_max::<String, _>(4, 4, hex_digit()),
             )),
         )
             .then(|(t, u, digits_raw)| {

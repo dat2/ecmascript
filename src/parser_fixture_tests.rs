@@ -47,6 +47,15 @@ macro_rules! assert_source_fixture_passes {
     };
 }
 
+macro_rules! assert_fixture_fails {
+    ($include:expr) => {
+        let src = include_str!(concat!("../esprima/test/fixtures/", $include, ".js"));
+        println!("{}", src);
+        println!("{:?}", src.as_bytes());
+        assert!(parser::parse(src).is_err());
+    };
+}
+
 // string
 #[test]
 fn test_expression_primary_literal_string_0000() {
@@ -126,6 +135,16 @@ fn test_expression_primary_literal_string_0017() {
 #[test]
 fn test_expression_primary_literal_string_0018() {
     assert_fixture_passes!("expression/primary/literal/string/migrated_0018");
+}
+
+#[test]
+fn test_expression_primary_literal_string_invalid_escaped_hex() {
+    assert_fixture_fails!("expression/primary/literal/string/invalid_escaped_hex");
+}
+
+#[test]
+fn test_expression_primary_literal_string_invalid_hex() {
+    assert_fixture_fails!("expression/primary/literal/string/invalid_hex");
 }
 
 // array

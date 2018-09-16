@@ -53,7 +53,7 @@ fn test_identifier_start_invalid_escape_sequence() {
 #[test]
 fn test_identifier_start_valid() {
     // testing $, _, unicode_escape_sequence as start
-    assert_parse_success!(identifier, r"\u24", "$".to_string());
+    assert_parse_success!(identifier, r"\u0024", "$".to_string());
     assert_parse_success!(identifier, r"_", "_".to_string());
 }
 
