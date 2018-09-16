@@ -49,10 +49,10 @@ parser! {
     {
         choice((
             try(newline()),
-            try(char('\u{000D}')),
+            try(crlf()),
+            try(char('\r')),
             try(char('\u{2028}')),
-            try(char('\u{2029}')),
-            crlf()
+            try(char('\u{2029}'))
         )).map(|_| ())
     }
 }
