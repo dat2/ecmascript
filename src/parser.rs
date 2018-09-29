@@ -261,13 +261,22 @@ parser! {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-literals-numeric-literals
 parser! {
-    pub fn numeric_literal[I]()(I) -> NumericLiteral
+    pub fn numeric_literal[I](strict: bool)(I) -> NumericLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (choice((
             try(binary_integer_literal()),
             try(octal_integer_literal()),
             try(hex_integer_literal()),
+            try(
+                if !*strict {
+                    legacy_octal_integer_literal().left()
+                } else {
+                    unexpected("legacy_octal_integer_literal")
+                        .map(|_| 0.0)
+                        .right()
+                }
+            ),
             decimal_literal(),
         ))).map(NumericLiteral)
     }
@@ -317,11 +326,10 @@ parser! {
             optional(token('-').or(token('+'))),
             many1::<String, _>(digit()),
         )
-            .map(
-                |(e, sign_opt, digits): (char, Option<char>, String)| match sign_opt {
-                    Some(sign) => e.to_string() + &sign.to_string() + &digits,
-                    None => e.to_string() + &digits,
-                },
+            .map(|(e, sign_opt, digits): (char, Option<char>, String)|
+                e.to_string() +
+                    &sign_opt.map(|c| c.to_string()).unwrap_or_else(String::new) +
+                    &digits
             )
     }
 }
@@ -362,6 +370,18 @@ parser! {
             many1::<String, _>(hex_digit()),
         )
             .map(|(_, _, digits)| i64::from_str_radix(&digits, 16).unwrap() as f64)
+    }
+}
+
+parser! {
+    fn legacy_octal_integer_literal[I]()(I) -> f64
+    where [I: Stream<Item=char, Position=SourcePosition>]
+    {
+        (
+            token('0'),
+            many1::<String, _>(octal_digit()),
+        )
+            .map(|(_, digits)| i64::from_str_radix(&digits, 8).unwrap() as f64)
     }
 }
 
@@ -902,6 +922,7 @@ parser! {
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-expressions
 parser! {
     pub fn primary_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
@@ -910,7 +931,7 @@ parser! {
         choice((
             try(this()),
             try(identifier_expression()),
-            try(literal()),
+            try(literal(*strict)),
             try(array_literal(*_yield, *_await)),
             try(object_literal(*_yield, *_await)),
             try(regex_literal_expression()),
@@ -942,19 +963,19 @@ parser! {
 }
 
 parser! {
-    fn literal [I]()(I) -> Expression
+    fn literal [I](strict: bool)(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             position(),
             choice((
-                    try(null_literal()).map(Literal::NullLiteral),
-                    try(boolean_literal()).map(Literal::BooleanLiteral),
-                    try(numeric_literal()).map(Literal::NumericLiteral),
-                    try(string_literal()).map(Literal::StringLiteral),
-                    )),
-                    position(),
-                    )
+                try(null_literal()).map(Literal::NullLiteral),
+                try(boolean_literal()).map(Literal::BooleanLiteral),
+                try(numeric_literal(*strict)).map(Literal::NumericLiteral),
+                try(string_literal()).map(Literal::StringLiteral),
+            )),
+            position(),
+        )
             .map(|(start, value, end)| Expression::Literal {
                 value,
                 loc: Some((start, end).into()),
@@ -1032,6 +1053,7 @@ parser! {
 
 parser! {
     fn object_literal [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
@@ -1043,7 +1065,7 @@ parser! {
                 token('{').skip(skip_tokens()),
                 token('}').skip(skip_tokens()),
                 sep_end_by(
-                    property_definition(*_yield, *_await).skip(skip_tokens()),
+                    property_definition(*strict, *_yield, *_await).skip(skip_tokens()),
                     token(',').skip(skip_tokens()),
                 ),
             ),
@@ -1058,14 +1080,15 @@ parser! {
 
 parser! {
     fn property_definition [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> ObjectExpressionProperty
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(property_initializer(*_yield, *_await)).map(ObjectExpressionProperty::Property),
-            try(method_definition(*_yield, *_await)).map(ObjectExpressionProperty::Property),
+            try(property_initializer(*strict, *_yield, *_await)).map(ObjectExpressionProperty::Property),
+            try(method_definition(*strict, *_yield, *_await)).map(ObjectExpressionProperty::Property),
             try(shorthand_property()).map(ObjectExpressionProperty::Property),
         ))
     }
@@ -1089,6 +1112,7 @@ parser! {
 
 parser! {
     fn property_initializer [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Property
@@ -1096,11 +1120,11 @@ parser! {
     {
         (
             position(),
-            property_name(*_yield, *_await),
+            property_name(*strict, *_yield, *_await),
             skip_tokens(),
             token(':'),
             skip_tokens(),
-            literal(),
+            literal(*strict),
             position(),
         )
         .map(|(start, (key, computed), _, _, _, value, end)| Property {
@@ -1117,20 +1141,21 @@ parser! {
 
 parser! {
     fn property_name [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> (Expression, bool)
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(literal_property_name()).map(|e| (e, false)),
+            try(literal_property_name(*strict)).map(|e| (e, false)),
             try(computed_property_name(*_yield, *_await)).map(|e| (e, true)),
         ))
     }
 }
 
 parser! {
-    fn literal_property_name [I]()(I) -> Expression
+    fn literal_property_name [I](strict: bool)(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
@@ -1139,7 +1164,7 @@ parser! {
                 value: Literal::StringLiteral(value),
                 loc: Some((start, end).into()),
             }),
-            (position(), numeric_literal(), position()).map(|(start, value, end)| {
+            (position(), numeric_literal(*strict), position()).map(|(start, value, end)| {
                 Expression::Literal {
                     value: Literal::NumericLiteral(value),
                     loc: Some((start, end).into()),
@@ -1166,6 +1191,7 @@ parser! {
 
 parser! {
     fn spread_element [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> ExpressionListItem
@@ -1173,7 +1199,7 @@ parser! {
     {
         (
             position(),
-            string("...").with(assignment_expression(*_yield, *_await)),
+            string("...").with(assignment_expression(*strict, *_yield, *_await)),
             position(),
         )
             .map(|(start, expression, end)| {
@@ -1187,15 +1213,16 @@ parser! {
 
 parser! {
     fn assignment_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(assignment_expression_inner_equal(*_yield, *_await)),
-            try(assignment_expression_inner_operators(*_yield, *_await)),
-            try(conditional_expression(*_yield, *_await)),
+            try(assignment_expression_inner_equal(*strict, *_yield, *_await)),
+            try(assignment_expression_inner_operators(*strict, *_yield, *_await)),
+            try(conditional_expression(*strict, *_yield, *_await)),
             try(
                 if *_yield {
                     yield_expression(*_await).left()
@@ -1211,20 +1238,22 @@ parser! {
 
 parser! {
     fn conditional_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(primary_expression(*_yield, *_await)),
-            try(conditional_expression_inner(*_yield, *_await)),
+            try(primary_expression(*strict, *_yield, *_await)),
+            try(conditional_expression_inner(*strict, *_yield, *_await)),
         ))
     }
 }
 
 parser! {
     fn conditional_expression_inner[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
@@ -1232,11 +1261,11 @@ parser! {
     {
         (
             position(),
-            primary_expression(*_yield, *_await).skip(skip_tokens()),
+            primary_expression(*strict, *_yield, *_await).skip(skip_tokens()),
             token('?').skip(skip_tokens()),
-            assignment_expression(*_yield, *_await).skip(skip_tokens()),
+            assignment_expression(*strict, *_yield, *_await).skip(skip_tokens()),
             token(':').skip(skip_tokens()),
-            assignment_expression(*_yield, *_await).skip(skip_tokens()),
+            assignment_expression(*strict, *_yield, *_await).skip(skip_tokens()),
             position(),
         )
             .map(|(start, test, _, consequent, _, alternate, end)| {
@@ -1252,6 +1281,7 @@ parser! {
 
 parser! {
     fn yield_expression [I](
+        strict: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -1259,7 +1289,7 @@ parser! {
         (
             string("yield").skip(skip_tokens()),
             optional(token('*').skip(skip_tokens())),
-            optional(try(assignment_expression(true, *_await).skip(skip_tokens()))),
+            optional(try(assignment_expression(*strict, true, *_await).skip(skip_tokens()))),
         )
         .map(|(_, delegate_token, argument)| Expression::Yield {
             argument: argument.map(Box::new),
@@ -1270,6 +1300,7 @@ parser! {
 
 parser! {
     fn assignment_expression_inner_equal[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
@@ -1279,9 +1310,9 @@ parser! {
     ]
     {
         (
-            left_hand_side_expression(*_yield, *_await).skip(skip_tokens()),
+            left_hand_side_expression(*strict, *_yield, *_await).skip(skip_tokens()),
             token('=').skip(skip_tokens()),
-            assignment_expression(*_yield, *_await)
+            assignment_expression(*strict, *_yield, *_await)
         ).and_then(|(left, _, right)| {
             left.into_pattern()
                 .map_err(|err| StreamErrorFor::<I>::unexpected_message(err.to_string()))
@@ -1296,45 +1327,49 @@ parser! {
 
 parser! {
     fn assignment_expression_inner_operators[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        assignment_expression_inner_equal(*_yield, *_await)
+        assignment_expression_inner_equal(*strict, *_yield, *_await)
     }
 }
 
 parser! {
     fn left_hand_side_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        new_expression(*_yield, *_await)
+        new_expression(*strict, *_yield, *_await)
     }
 }
 
 parser! {
     fn new_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        member_expression(*_yield, *_await)
+        member_expression(*strict, *_yield, *_await)
     }
 }
 
 parser! {
     fn member_expression[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        primary_expression(*_yield, *_await)
+        primary_expression(*strict, *_yield, *_await)
     }
 }
 
@@ -1419,17 +1454,19 @@ parser! {
 
 parser! {
     fn jsx_attribute [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> JsxAttribute
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        choice((try(jsx_spread_attribute(*_yield, *_await)), try(jsx_attribute_key_value(*_yield, *_await))))
+        choice((try(jsx_spread_attribute(*strict, *_yield, *_await)), try(jsx_attribute_key_value(*_yield, *_await))))
     }
 }
 
 parser! {
     fn jsx_spread_attribute [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> JsxAttribute
@@ -1438,7 +1475,7 @@ parser! {
         between(
             token('{').skip(skip_tokens()),
             token('}').skip(skip_tokens()),
-            string("...").skip(skip_tokens()).with(assignment_expression(*_yield, *_await)),
+            string("...").skip(skip_tokens()).with(assignment_expression(*strict, *_yield, *_await)),
         ).map(|expression| JsxAttribute::JsxSpreadAttribute { expression })
     }
 }
@@ -1652,9 +1689,9 @@ parser! {
             position(),
             string("var").skip(skip_tokens()),
             variable_declaration_list(*_yield, *_await),
-            optional(try(token(';').skip(skip_tokens()))),
             position(),
-        ).map(|(start, _, declarations, _, end)| Statement::VariableDeclaration {
+            optional(try(token(';').skip(skip_tokens()))),
+        ).map(|(start, _, declarations, end, _)| Statement::VariableDeclaration {
             kind: VariableDeclarationKind::Var,
             declarations,
             loc: Some((start, end).into())
@@ -1739,8 +1776,9 @@ parser! {
         (
             position(),
             expression(*_yield, *_await),
-            position()
-        ).map(|(start, expression, end)| {
+            position(),
+            optional(token(';'))
+        ).map(|(start, expression, end, _)| {
             Statement::ExpressionStatement {
                 loc: Some((start, end).into()),
                 expression,
@@ -1790,6 +1828,7 @@ parser! {
 
 parser! {
     fn method_definition [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Property
@@ -1797,17 +1836,18 @@ parser! {
     {
         choice((
             try(getter_method_definition(*_yield, *_await)),
-            try(setter_method_definition(*_yield, *_await)),
-            try(generator_method_definition()),
+            try(setter_method_definition(*strict, *_yield, *_await)),
+            try(generator_method_definition(*strict)),
             try(async_generator_method_definition()),
             try(async_method_definition()),
-            basic_method_definition(false, false),
+            basic_method_definition(*strict, *_yield, *_await),
         ))
     }
 }
 
 parser! {
     fn basic_method_definition[I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Property
@@ -1815,7 +1855,7 @@ parser! {
     {
         (
             position(),
-            property_name(*_yield, *_await),
+            property_name(*strict, *_yield, *_await),
             skip_tokens(),
             formal_parameters(),
             skip_tokens(),
@@ -1843,33 +1883,33 @@ parser! {
 }
 
 parser! {
-    fn generator_method_definition [I]()(I) -> Property
+    fn generator_method_definition [I](strict: bool)(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             token('*'),
             skip_tokens(),
-            basic_method_definition(true, false),
+            basic_method_definition(*strict, true, false),
         )
         .map(|x| x.2)
     }
 }
 
 parser! {
-    fn async_method_definition [I]()(I) -> Property
+    fn async_method_definition [I](strict: bool)(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
             string("async"),
             skip_tokens(),
-            basic_method_definition(false, true),
+            basic_method_definition(*strict, false, true),
         )
         .map(|x| x.2)
     }
 }
 
 parser! {
-    fn async_generator_method_definition [I]()(I) -> Property
+    fn async_generator_method_definition [I](strict: bool)(I) -> Property
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
@@ -1877,7 +1917,7 @@ parser! {
             skip_tokens(),
             token('*'),
             skip_tokens(),
-            basic_method_definition(true, true),
+            basic_method_definition(*strict, true, true),
         )
             .map(|x| x.4)
     }
@@ -1885,6 +1925,7 @@ parser! {
 
 parser! {
     fn getter_method_definition [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Property
@@ -1893,7 +1934,7 @@ parser! {
         (
             position(),
             string("get").skip(skip_tokens()),
-            property_name(*_yield, *_await).skip(skip_tokens()),
+            property_name(*strict, *_yield, *_await).skip(skip_tokens()),
             token('(').skip(skip_tokens()),
             token(')').skip(skip_tokens()),
             function_body(false, false),
@@ -1919,6 +1960,7 @@ parser! {
 
 parser! {
     fn setter_method_definition [I](
+        strict: bool,
         _yield: bool,
         _await: bool
     )(I) -> Property
@@ -1927,7 +1969,7 @@ parser! {
         (
             position(),
             string("set").skip(skip_tokens()),
-            property_name(*_yield, *_await).skip(skip_tokens()),
+            property_name(*strict, *_yield, *_await).skip(skip_tokens()),
             between(
                 token('(').skip(skip_tokens()),
                 token(')').skip(skip_tokens()),

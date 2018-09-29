@@ -147,6 +147,137 @@ fn test_expression_primary_literal_string_invalid_hex() {
     assert_fixture_fails!("expression/primary/literal/string/invalid_hex");
 }
 
+// numeric
+#[test]
+fn test_expression_primary_literal_numeric_0000() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0000");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0001() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0001");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0002() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0002");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0003() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0003");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0004() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0004");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0005() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0005");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0006() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0006");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0007() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0007");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0008() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0008");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0009() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0009");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0010() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0010");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0011() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0011");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0012() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0012");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0013() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0013");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0014() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0014");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0015() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0015");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0016() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0016");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0017() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0017");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0018() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0018");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0019() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0019");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0020() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0020");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0021() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0021");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0022() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0022");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0023() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0023");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_0024() {
+    assert_fixture_passes!("expression/primary/literal/numeric/migrated_0024");
+}
+
+#[test]
+fn test_expression_primary_literal_numeric_invalid_hex() {
+    assert_fixture_fails!("expression/primary/literal/numeric/invalid_hex");
+}
+
 // array
 #[test]
 fn test_expression_primary_array_0000() {
