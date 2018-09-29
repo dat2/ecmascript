@@ -16,14 +16,12 @@ fn main() -> Result<(), Error> {
                 .help("Sets the input source to parse")
                 .required(true)
                 .index(1),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")
                 .help("Sets the verbosity"),
-        )
-        .get_matches();
+        ).get_matches();
     let source = matches.value_of("INPUT").unwrap();
     if matches.is_present("verbose") {
         println!("source: {:?}", source);

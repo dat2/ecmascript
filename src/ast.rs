@@ -6,6 +6,18 @@
 //! The macros `build_ast` and `match_ast` are meant to be the public API of this
 //! module as they abstract away the types in such a way so that the user of the library
 //! feels as if they are working with source text almost directly.
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
+
+/// ReferenceError represents a failure when trying to convert an expression into a pattern.
+#[derive(Debug, Fail)]
+pub enum ReferenceError {
+    /// This represents an error when you are trying to assign an expression to the lhs that
+    /// can't be assigned to. (eg. 1 = 1)
+    #[fail(display = "ReferenceError: Invalid left-hand side in assignment")]
+    InvalidLeftHandSide,
+}
 
 /// Position is a line and a column. The line is 1 indexed, and column is 0 indexed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -114,7 +126,7 @@ pub struct TemplateElement {
     /// If the template element has any sort of escape sequences (eg. \u{2028})
     /// this will represent the evaluated result of that sequence.
     /// eg. if raw == "\u{41}", cooked = "A"
-    pub cooked: String,
+    pub cooked: Option<String>,
     /// This will store the exact string value, before being evaluted into the unicode
     /// code points.
     pub raw: String,
@@ -164,7 +176,7 @@ pub enum Expression {
     /// This is an expression created by using {} brackets.
     ObjectExpression {
         /// This is the list of properties for the object.
-        properties: Vec<Property>,
+        properties: Vec<ObjectExpressionProperty>,
         /// This is the location where the expression starts.
         loc: Option<SourceLocation>,
     },
@@ -177,7 +189,7 @@ pub enum Expression {
         /// The formal parameters to a function.
         params: Vec<Pattern>,
         /// The body is a list of statements. This can include pragmas.
-        body: Vec<Statement>,
+        body: Vec<FunctionBodyStatement>,
         /// This is true if the function was defined with the `async` keyword before the
         /// `function` keyword.
         async: bool,
@@ -221,7 +233,7 @@ pub enum Expression {
         /// instead of changing the left hand side.
         operator: AssignmentOperator,
         /// The expression that gets changed in some way. eg. (id = some_new_value)
-        left: Box<Expression>,
+        left: Box<Pattern>,
         /// The expression that changes the lhs.
         right: Box<Expression>,
     },
@@ -238,7 +250,7 @@ pub enum Expression {
     /// Eg. `obj.key` or `obj[computed_key]`
     MemberExpression {
         /// The object we're trying to access.
-        object: Box<Expression>,
+        object: Box<SuperExpression>,
         /// The property we're trying to access. It can be computed, or a basic
         /// IdReference.
         property: Box<Expression>,
@@ -254,14 +266,16 @@ pub enum Expression {
         alternate: Box<Expression>,
         /// The expression returned if the test expression is falsy.
         consequent: Box<Expression>,
+        /// The location in code where this expression is found.
+        loc: Option<SourceLocation>,
     },
     /// This is a regular function call, eg. `myFunction(expr1, expr2)`
     CallExpression {
         /// The callee is the function we're trying to call. It may be an IIFE (immediately
         /// invoked function expression) or any other dynamic function.
-        callee: Box<Expression>,
+        callee: Box<SuperExpression>,
         /// The list of parameters to pass to the function.
-        arguments: Vec<Expression>,
+        arguments: Vec<ExpressionListItem>,
     },
     /// This is the `new MemberExpression` expression. It will construct the callee
     /// and return an object.
@@ -269,7 +283,7 @@ pub enum Expression {
         /// The callee is the function we are trying to construct.
         callee: Box<Expression>,
         /// The arguments is a list of parameters to the function we're trying to construct.
-        arguments: Vec<Expression>,
+        arguments: Vec<ExpressionListItem>,
     },
     /// This represents a comma expression, eg. (a, b). This will evaluate the first operand,
     /// throw it away, and return the second operand.
@@ -283,31 +297,13 @@ pub enum Expression {
         /// This is the list of expressions separated by a comma.
         expressions: Vec<Expression>,
     },
-
-    /// Super is the `super` keyword, similar to the `this` keyword.
-    Super,
-    /// This is the `new.target` expression that was introduced in ES2015. This
-    /// tells you if the function was called with the `new` operator.
-    MetaProperty,
-    /// This is an expression where we pass the elements of the template literal to the
-    /// tag function.
-    ///
-    /// eg.
-    /// ```javascript
-    /// function tag(stringParts, expr1, expr2) {
-    ///
-    /// }
-    /// tag`123 ${}`
-    /// ```
-    TaggedTemplate {
-        /// This is the function we're trying to pass the template elements to.
-        tag: Box<Expression>,
-        /// The only expression that is valid for the quasi, is another TemplateLiteral
-        /// expression. In the interest of simplicity, we are not going to disallow this in the
-        /// AST.
-        quasi: Box<Expression>,
+    /// An arrow function expression is one that binds "this" automatically.
+    ArrowFunctionExpression {
+        /// The body can either be a list of statements or an expression.
+        body: Box<ArrowFunctionBody>,
+        /// This tells you if the arrow function is one that returns an expression
+        expression: bool,
     },
-    // ArrowFunctionExpression
     /// The yield expression that is only valid inside a generator function.
     /// It is a syntax error if there is a yield expression in the body of a non generator
     /// function.
@@ -319,7 +315,6 @@ pub enum Expression {
         /// until the delegate generator completes.
         delegate: bool, // yield *
     },
-    // Class,
     /// A Template literal expression has many template elements with expressions littered
     /// between.
     ///
@@ -336,11 +331,38 @@ pub enum Expression {
         /// This is the location where the expression starts.
         loc: Option<SourceLocation>,
     },
+    /// This is an expression where we pass the elements of the template literal to the
+    /// tag function.
+    ///
+    /// eg.
+    /// ```javascript
+    /// function tag(stringParts, expr1, expr2) {
+    ///
+    /// }
+    /// tag`123 ${}`
+    /// ```
+    TaggedTemplateExpression {
+        /// This is the function we're trying to pass the template elements to.
+        tag: Box<Expression>,
+        /// The only expression that is valid for the quasi is another TemplateLiteral
+        quasi: Box<Expression>,
+    },
+    /// An await expression is an expression that can be used inside an async function.
+    AwaitExpression {
+        /// The expression that is being awaited for.
+        argument: Box<Expression>,
+        /// The source location of the expression.
+        loc: Option<SourceLocation>,
+    },
+    /// This is the `new.target` expression that was introduced in ES2015. This
+    /// tells you if the function was called with the `new` operator.
+    MetaProperty,
+    // Class,
     /// *NOTE*: This is an extension to the language proposed by facebook.
     /// The JsxElement is an inlined expression of the form:
     /// <name key={value}>
     /// The JsxElement must be matched by a closing element, or else it is a syntax error.
-    JsxElementExpression {
+    JSXElement {
         /// The name of the element to construct.
         name: String,
         /// The key={value} pairs.
@@ -361,13 +383,42 @@ pub enum Expression {
     },
 }
 
+impl Expression {
+    /// This allows us to convert an expression into a pattern, in the case of assignment
+    /// expression. We need to parse a LeftHandSideExpression, but it needs to be coerced into a
+    /// Pattern
+    pub fn into_pattern(self) -> Result<Pattern, ReferenceError> {
+        match self {
+            Expression::Identifier { name, loc } => Ok(Pattern::Identifier { name, loc }),
+            _ => Err(ReferenceError::InvalidLeftHandSide),
+        }
+    }
+}
+
 /// A pattern is any way you can destructure an object or array.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
 pub enum ExpressionListItem {
     /// This is just a regular expression.
     Expression(Expression),
     /// This prevents a spread expression from being in an invalid syntax tree.
-    Spread(Option<SourceLocation>, Expression),
+    Spread(SpreadElement),
+    /// This is to support elision on array elements.
+    #[serde(rename = "null")]
+    Null,
+}
+
+/// A spread element is something that be spread, eg. an array or an object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum SpreadElement {
+    /// This is an element that is being spread into another expression.
+    SpreadElement {
+        /// The expression to spread into another expression.
+        argument: Expression,
+        /// The location of the spread element.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// An object property is a tuple of a key, value, and a tag representing what kind of
@@ -404,37 +455,80 @@ pub enum PropertyKind {
     Set,
 }
 
+/// An object expression property can be a property or a spread property.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ObjectExpressionProperty {
+    /// A regular property being added to an object expression
+    Property(Property),
+    /// This allows you to spread into an object literal.
+    SpreadElement(SpreadElement),
+}
+
 /// A pattern is any way you can destructure an object or array.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
 pub enum Pattern {
-    /// This is a regular IdReference pattern.
-    Identifier(Identifier),
+    /// This is a regular identifier pattern.
+    Identifier {
+        /// The identifier itself.
+        name: String,
+        /// The location of the identifier.
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to destructure objects.
-    Object(Vec<ObjectPatternProperty>),
+    ObjectPattern {
+        /// The properties that are being destructured.
+        properties: Vec<ObjectPatternProperty>,
+        /// The location of the object pattern
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to destructure arrays.
-    Array(Vec<Pattern>),
+    ArrayPattern {
+        /// The sub patterns in the destructured array.
+        elements: Vec<Pattern>,
+        /// The location of the pattern in source code.
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to collect the "rest" of properties or elements
     /// in an array into a single parameter.
     /// This is only allowed within the Array or Object patterns.
-    Rest(Identifier),
+    RestElement {
+        /// The pattern (eg. identifier) that is being collected.
+        argument: Box<Pattern>,
+        /// The location of the pattern in code
+        loc: Option<SourceLocation>,
+    },
     /// This allows you to set a default value for a pattern.
     /// eg. const { x = 1 }
-    Default {
+    AssignmentPattern {
         /// The pattern that you are setting a default for.
         /// It is a syntax error for the pattern to be a Rest pattern.
-        pattern: Box<Pattern>,
+        left: Box<Pattern>,
         /// The value you set the default to.
-        default: Expression,
+        argument: Expression,
     },
 }
 
 /// This is a restricted version of a Property that only allows patterns as the value.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ObjectPatternProperty {
-    /// The key can still be an id reference, or computed.
-    pub key: Expression,
-    /// The value however is now another pattern.
-    pub value: Pattern,
+#[serde(tag = "type")]
+pub enum ObjectPatternProperty {
+    /// The regular property.
+    #[serde(rename = "Property")]
+    AssignmentProperty {
+        /// The key can still be an id reference, or computed.
+        key: Expression,
+        /// The value however is now another pattern.
+        value: Pattern,
+    },
+    /// The object pattern can be spread.
+    RestElement {
+        /// This is the pattern to be spread into.
+        argument: Box<Pattern>,
+        /// This is the source location of the spread property.
+        loc: Option<SourceLocation>,
+    },
 }
 
 /// A template literal element can either be the string between backticks and `${`
@@ -561,7 +655,7 @@ pub enum BinaryOperator {
 /// Assignment operators are ones that signify a chnage to the left hand side of the expression.
 ///
 /// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-assignment-operators)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentOperator {
     /// The basic assignment statement. This changes the left hand side to become a
     /// copy of the right hand side. (eg. a = 1)
@@ -596,6 +690,74 @@ pub enum AssignmentOperator {
     BitwiseXorEq,
     /// This is shorthand for `lhs = lhs & rhs`. (eg a &= 5).
     BitwiseAndEq,
+    /// The expoentation operator. This raises the left hand operand to the power of
+    /// the right hand side. (eg 2 ** 4 is 2*2*2*2 or 16)
+    ExponentiationEq,
+}
+
+impl Serialize for AssignmentOperator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let string = match self {
+            AssignmentOperator::Eq => "=",
+            AssignmentOperator::PlusEq => "+=",
+            AssignmentOperator::MinusEq => "-=",
+            AssignmentOperator::MultiplyEq => "*=",
+            AssignmentOperator::DivideEq => "/=",
+            AssignmentOperator::ModEq => "%=",
+            AssignmentOperator::ShlEq => "<<=",
+            AssignmentOperator::ShrEq => ">>=",
+            AssignmentOperator::UnsignedShrEq => ">>>=",
+            AssignmentOperator::BitwiseOrEq => "|=",
+            AssignmentOperator::BitwiseXorEq => "^=",
+            AssignmentOperator::BitwiseAndEq => "&=",
+            AssignmentOperator::ExponentiationEq => "**=",
+        };
+        serializer.serialize_str(string)
+    }
+}
+
+struct AssignmentOperatorVisitor;
+
+impl<'de> Visitor<'de> for AssignmentOperatorVisitor {
+    type Value = AssignmentOperator;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("one of =")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match value {
+            "=" => Ok(AssignmentOperator::Eq),
+            "+=" => Ok(AssignmentOperator::PlusEq),
+            "-=" => Ok(AssignmentOperator::MinusEq),
+            "*=" => Ok(AssignmentOperator::MultiplyEq),
+            "/=" => Ok(AssignmentOperator::DivideEq),
+            "%=" => Ok(AssignmentOperator::ModEq),
+            "<<=" => Ok(AssignmentOperator::ShlEq),
+            ">>=" => Ok(AssignmentOperator::ShrEq),
+            ">>>=" => Ok(AssignmentOperator::UnsignedShrEq),
+            "|=" => Ok(AssignmentOperator::BitwiseOrEq),
+            "^=" => Ok(AssignmentOperator::BitwiseAndEq),
+            "&=" => Ok(AssignmentOperator::BitwiseAndEq),
+            "**=" => Ok(AssignmentOperator::ExponentiationEq),
+            _ => Err(E::custom(format!("{} is not an operator", value))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AssignmentOperator {
+    fn deserialize<D>(deserializer: D) -> Result<AssignmentOperator, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(AssignmentOperatorVisitor)
+    }
 }
 
 /// All the operators that have 2 arguments are merged into one big enum here for simplicity
@@ -635,6 +797,46 @@ pub enum JsxAttribute {
     },
 }
 
+/// This is a super call or object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum Super {
+    /// The enum is just a hack to get "type: Super" in the estree output.
+    #[serde(rename_all = "camelCase")]
+    Super {
+        /// The location of the super call.
+        loc: Option<SourceLocation>,
+    },
+}
+
+/// This is a super call or object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum SuperExpression {
+    /// This means the expression was a super call
+    Super(Super),
+    /// This means the expression was a regular expression
+    Expression(Expression),
+}
+
+/// A function body is either a statement or a directive.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum FunctionBodyStatement {
+    /// A statement.
+    Statement(Statement),
+}
+
+/// This represents what the arrow function body can be
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ArrowFunctionBody {
+    /// The arrow function body can be a list of statements
+    FunctionBody(Vec<FunctionBodyStatement>),
+    /// The arrow function can just return a single expression immediately
+    Expression(Expression),
+}
+
 /// A statement is either a declaration (var, const, let, function, export) or an
 /// instruction to the interpreter to evaluate an expression.
 /// For the sake of simplicity, declarations will get merged into this struct as well.
@@ -650,6 +852,53 @@ pub enum Statement {
         /// The source location in code where this statement starts.
         loc: Option<SourceLocation>,
     },
+    /// VariableDeclaration represents the statement that defines a variable, and possibly its
+    /// value. eg "var array = []"
+    VariableDeclaration {
+        /// Multiple variables can be defined with a single "var", eg. "var x, y, z"
+        declarations: Vec<VariableDeclarator>,
+        /// This represents whether it was a "let", "const", or "var"
+        kind: VariableDeclarationKind,
+        /// The source location in code where this statement starts
+        loc: Option<SourceLocation>,
+    },
+}
+
+/// VariableDeclarator is a struct that has a pattern and an initializer.
+/// The pattern can be an identifier, or an object destructuring pattern or array destructuring
+/// pattern.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct VariableDeclarator {
+    /// This is the "left hand side" of the declaration, eg "var x = []", "x" is the id.
+    pub id: Pattern,
+    /// This is the "right hand side", or "initial value" of the variable being declared.
+    pub init: VariableDeclaratorInit,
+}
+
+/// This enum is internal, to maintain estree compatibility
+/// Alternatively, we could write a custom serializer / deserializer to map "null" to an Option,
+/// but this was easier in the short term.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum VariableDeclaratorInit {
+    /// estree defines the init as being an expression or "null"
+    #[serde(rename = "lowercase")]
+    Null,
+    /// The declarator is usually an expression.
+    Expression(Expression),
+}
+
+/// This represents the different kinds of declarations that can occur, eg. let, const or var.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged, rename_all = "lowercase")]
+pub enum VariableDeclarationKind {
+    /// Var is a variable that is function scoped.
+    Var,
+    /// Let is a variable that can be re-assigned, but is block scoped.
+    Let,
+    /// Const is a variable that can't be re-assigned, but is not internally immutable, and is
+    /// block scoped.
+    Const,
 }
 
 /// This is the main entry point to the syntax tree. A program is a list of statements,

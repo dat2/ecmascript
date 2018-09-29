@@ -13,11 +13,23 @@ macro_rules! assert_parse_success {
             Ok($result)
         );
     };
+    ($parser:ident ($($args:expr),*), $input:expr, $result:expr) => {
+        assert_eq!(
+            ($parser($($args),*), eof())
+                .map(|x| x.0)
+                .easy_parse(State::new($input))
+                .map(|x| x.0),
+            Ok($result)
+        );
+    };
 }
 
 macro_rules! assert_parse_failure {
     ($parser:ident, $input:expr) => {
         assert!(($parser(), eof()).easy_parse(State::new($input)).is_err());
+    };
+    ($parser:ident ($($args:expr),*), $input:expr) => {
+        assert!(($parser($($args),*), eof()).easy_parse(State::new($input)).is_err());
     };
 }
 
@@ -41,7 +53,7 @@ fn test_identifier_start_invalid_escape_sequence() {
 #[test]
 fn test_identifier_start_valid() {
     // testing $, _, unicode_escape_sequence as start
-    assert_parse_success!(identifier, r"\u24", "$".to_string());
+    assert_parse_success!(identifier, r"\u0024", "$".to_string());
     assert_parse_success!(identifier, r"_", "_".to_string());
 }
 
@@ -118,92 +130,6 @@ fn test_number_literal_hex() {
     // hex
     assert_parse_success!(numeric_literal, "0XDEADBEEF", NumericLiteral(3735928559f64));
     assert_parse_success!(numeric_literal, "0xDEADBEEF", NumericLiteral(3735928559f64));
-}
-
-#[test]
-fn test_string_literal_empty() {
-    // empty
-    assert_parse_success!(string_literal, r#""""#, StringLiteral(String::new()));
-    assert_parse_success!(string_literal, "''", StringLiteral(String::new()));
-}
-
-#[test]
-fn test_string_literal_invalid_chars() {
-    // not allowed chars
-    for not_allowed_char in "\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}".chars() {
-        let double_quote_slice: &str = &format!("\"{}\"", not_allowed_char);
-        let single_quote_slice: &str = &format!("'{}'", not_allowed_char);
-        assert_parse_failure!(string_literal, double_quote_slice);
-        assert_parse_failure!(string_literal, single_quote_slice);
-    }
-}
-
-#[test]
-fn test_string_literal_character_escape_sequence() {
-    // character escape sequences
-    let escape_chars = r#"'"\bfnrtv"#.chars();
-    let escape_char_values = "\'\"\\\u{8}\u{c}\n\r\t\u{b}".chars();
-    for (escaped_character, value) in escape_chars.zip(escape_char_values) {
-        let double_quote_slice: &str = &format!("\"\\{}\"", escaped_character);
-        let single_quote_slice: &str = &format!("'\\{}'", escaped_character);
-        assert_parse_success!(
-            string_literal,
-            double_quote_slice,
-            StringLiteral(value.to_string())
-        );
-        assert_parse_success!(
-            string_literal,
-            single_quote_slice,
-            StringLiteral(value.to_string())
-        );
-    }
-    // non character escape sequences
-    assert_parse_success!(string_literal, "\"\\a\"", StringLiteral("a".to_string()));
-    assert_parse_success!(string_literal, "'\\a'", StringLiteral("a".to_string()));
-}
-
-#[test]
-fn test_string_literal_hex_escape_sequence() {
-    // hex escape sequence
-    assert_parse_success!(string_literal, r#""\x0A""#, StringLiteral("\n".to_string()));
-    assert_parse_success!(string_literal, r#"'\x0A'"#, StringLiteral("\n".to_string()));
-}
-
-#[test]
-fn test_string_literal_unicode_escape_sequence() {
-    // unicode escape sequence
-    assert_parse_success!(
-        string_literal,
-        r#""\u2764""#,
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r"'\u2764'",
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r#""\u{2764}""#,
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_success!(
-        string_literal,
-        r"'\u{2764}'",
-        StringLiteral("❤".to_string())
-    );
-    assert_parse_failure!(string_literal, r"'\u{110000}'");
-}
-
-#[test]
-fn test_string_literal_line_continuation_invalid() {
-    // line continuation
-    for line_continuation_char in "\r\n\u{2028}\u{2029}".chars() {
-        let double_quote_slice: &str = &format!("\"\\{}\"", line_continuation_char);
-        let single_quote_slice: &str = &format!("'\\{}'", line_continuation_char);
-        assert_parse_failure!(string_literal, double_quote_slice);
-        assert_parse_failure!(string_literal, single_quote_slice);
-    }
 }
 
 #[test]
@@ -311,65 +237,98 @@ fn test_regex_literal_flags() {
 #[test]
 fn test_template_element_empty() {
     assert_parse_success!(
-        template,
+        primary_expression(false, false),
         "``",
-        TemplateElement {
-            raw: String::new(),
-            cooked: String::new(),
-            loc: Some(((1, 0), (1, 2)).into())
+        Expression::TemplateLiteral {
+            quasis: vec![TemplateElement {
+                raw: String::new(),
+                cooked: Some(String::new()),
+                loc: Some(((1, 0), (1, 2)).into()),
+            }],
+            expressions: vec![],
+            loc: Some(((1, 0), (1, 2)).into()),
         }
     );
 }
 
 #[test]
-fn test_template_element_no_substitution_template() {
+fn test_template_element_no_expressions() {
     assert_parse_success!(
-        template,
+        primary_expression(false, false),
         "`asd`",
-        TemplateElement {
-            raw: "asd".to_string(),
-            cooked: "asd".to_string(),
+        Expression::TemplateLiteral {
+            quasis: vec![TemplateElement {
+                cooked: Some("asd".to_string()),
+                raw: "asd".to_string(),
+                loc: Some(((1, 0), (1, 5)).into())
+            }],
+            expressions: vec![],
             loc: Some(((1, 0), (1, 5)).into())
         }
     );
 }
 
 #[test]
-fn test_template_element_template_head() {
+fn test_template_element_template_single_expression() {
     assert_parse_success!(
-        template,
-        "`asd ${",
-        TemplateElement {
-            raw: "asd ".to_string(),
-            cooked: "asd ".to_string(),
-            loc: Some(((1, 0), (1, 7)).into())
+        primary_expression(true, false),
+        "`asd ${yield} asd`",
+        Expression::TemplateLiteral {
+            quasis: vec![
+                TemplateElement {
+                    cooked: Some("asd ".to_string()),
+                    raw: "asd ".to_string(),
+                    loc: Some(((1, 0), (1, 7)).into())
+                },
+                TemplateElement {
+                    cooked: Some(" asd".to_string()),
+                    raw: " asd".to_string(),
+                    loc: Some(((1, 12), (1, 18)).into())
+                }
+            ],
+            expressions: vec![Expression::Yield {
+                argument: None,
+                delegate: false
+            }],
+            loc: Some(((1, 0), (1, 18)).into())
         }
     );
 }
 
 #[test]
-fn test_template_element_template_middle() {
+fn test_template_element_template_multiple_expressions() {
     assert_parse_success!(
-        template_substition_tail,
-        "} asd ${",
-        TemplateElement {
-            raw: " asd ".to_string(),
-            cooked: " asd ".to_string(),
-            loc: Some(((1, 0), (1, 8)).into())
-        }
-    );
-}
-
-#[test]
-fn test_template_element_template_tail() {
-    // template_tail
-    assert_parse_success!(
-        template_substition_tail,
-        "} asd",
-        TemplateElement {
-            raw: " asd".to_string(),
-            cooked: " asd".to_string(),
-            loc: Some(((1, 0), (1, 5)).into())
+        primary_expression(true, false),
+        "`asd ${yield} asd ${yield} asd`",
+        Expression::TemplateLiteral {
+            quasis: vec![
+                TemplateElement {
+                    cooked: Some("asd ".to_string()),
+                    raw: "asd ".to_string(),
+                    loc: Some(((1, 0), (1, 7)).into()),
+                },
+                TemplateElement {
+                    cooked: Some(" asd ".to_string()),
+                    raw: " asd ".to_string(),
+                    loc: Some(((1, 12), (1, 20)).into())
+                },
+                TemplateElement {
+                    cooked: Some(" asd".to_string()),
+                    raw: " asd".to_string(),
+                    loc: Some(((1, 25), (1, 31)).into())
+                }
+            ],
+            expressions: vec![
+                Expression::Yield {
+                    argument: None,
+                    delegate: false
+                },
+                Expression::Yield {
+                    argument: None,
+                    delegate: false
+                }
+            ],
+            loc: Some(((1, 0), (1, 31)).into())
         }
     );
 }
@@ -405,7 +364,7 @@ fn test_template_element_template_character() {
 #[test]
 fn test_primary_expression_this() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "this",
         Expression::ThisExpression {
             loc: Some(((1, 0), (1, 4)).into())
@@ -416,7 +375,7 @@ fn test_primary_expression_this() {
 #[test]
 fn test_primary_expression_identifier_reference() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "abc123",
         Expression::Identifier {
             loc: Some(((1, 0), (1, 6)).into()),
@@ -428,7 +387,7 @@ fn test_primary_expression_identifier_reference() {
 #[test]
 fn test_primary_expression_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "null",
         Expression::Literal {
             value: Literal::NullLiteral(NullLiteral),
@@ -436,7 +395,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "true",
         Expression::Literal {
             value: Literal::BooleanLiteral(BooleanLiteral(true)),
@@ -444,7 +403,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "false",
         Expression::Literal {
             value: Literal::BooleanLiteral(BooleanLiteral(false)),
@@ -452,7 +411,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "123.e1",
         Expression::Literal {
             value: Literal::NumericLiteral(NumericLiteral(1230f64)),
@@ -460,7 +419,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "'abc'",
         Expression::Literal {
             value: Literal::StringLiteral(StringLiteral("abc".to_string())),
@@ -468,7 +427,7 @@ fn test_primary_expression_literal() {
         }
     );
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "/\\a/",
         Expression::Literal {
             value: Literal::RegExpLiteral(RegExpLiteral {
@@ -481,68 +440,9 @@ fn test_primary_expression_literal() {
 }
 
 #[test]
-fn test_primary_expression_array_literal_empty() {
-    assert_parse_success!(
-        primary_expression,
-        "[]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 2)).into()),
-            elements: Vec::new()
-        }
-    );
-}
-
-#[test]
-fn test_primary_expression_array_literal_elision() {
-    assert_parse_success!(
-        primary_expression,
-        "[,,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 6)).into()),
-            elements: Vec::new()
-        }
-    );
-}
-
-#[test]
-fn test_primary_expression_array_literal_elision_and_elements() {
-    assert_parse_success!(
-        primary_expression,
-        "[,,,,yield,,yield,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 21)).into()),
-            elements: vec![
-                ExpressionListItem::Expression(Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                }),
-                ExpressionListItem::Expression(Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                }),
-            ],
-        }
-    );
-    assert_parse_success!(
-        primary_expression,
-        "[,,,...yield,,,]",
-        Expression::ArrayExpression {
-            loc: Some(((1, 0), (1, 16)).into()),
-            elements: vec![ExpressionListItem::Spread(
-                Some(((1, 4), (1, 12)).into()),
-                Expression::Yield {
-                    argument: None,
-                    delegate: false,
-                },
-            )],
-        }
-    );
-}
-
-#[test]
 fn test_primary_expression_object_literal_empty() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{}",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 2)).into()),
@@ -554,11 +454,11 @@ fn test_primary_expression_object_literal_empty() {
 #[test]
 fn test_primary_expression_object_literal_shorthand() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 6)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -572,7 +472,7 @@ fn test_primary_expression_object_literal_shorthand() {
                 shorthand: true,
                 computed: false,
                 loc: Some(((1, 2), (1, 4)).into()),
-            }],
+            })],
         }
     );
 }
@@ -580,12 +480,12 @@ fn test_primary_expression_object_literal_shorthand() {
 #[test]
 fn test_primary_expression_object_literal_multiple_properties() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id, id2 }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
             properties: vec![
-                Property {
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 2), (1, 4)).into()),
@@ -599,8 +499,8 @@ fn test_primary_expression_object_literal_multiple_properties() {
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 2), (1, 4)).into()),
-                },
-                Property {
+                }),
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 6), (1, 9)).into()),
@@ -614,7 +514,7 @@ fn test_primary_expression_object_literal_multiple_properties() {
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
-                },
+                }),
             ],
         }
     );
@@ -623,12 +523,12 @@ fn test_primary_expression_object_literal_multiple_properties() {
 #[test]
 fn test_primary_expression_object_literal_multiple_properties_ending_semicolon() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id, id2, }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
             properties: vec![
-                Property {
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 2), (1, 4)).into()),
@@ -642,8 +542,8 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 2), (1, 4)).into()),
-                },
-                Property {
+                }),
+                ObjectExpressionProperty::Property(Property {
                     kind: PropertyKind::Init,
                     key: Expression::Identifier {
                         loc: Some(((1, 6), (1, 9)).into()),
@@ -657,7 +557,7 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
                     shorthand: true,
                     computed: false,
                     loc: Some(((1, 6), (1, 9)).into()),
-                },
+                }),
             ],
         }
     );
@@ -666,11 +566,11 @@ fn test_primary_expression_object_literal_multiple_properties_ending_semicolon()
 #[test]
 fn test_primary_expression_object_literal_initializer() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ id: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 12)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Identifier {
                     loc: Some(((1, 2), (1, 4)).into()),
@@ -684,7 +584,7 @@ fn test_primary_expression_object_literal_initializer() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 10)).into()),
-            }],
+            })],
         }
     );
 }
@@ -692,11 +592,11 @@ fn test_primary_expression_object_literal_initializer() {
 #[test]
 fn test_object_literal_initializer_string_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ 'id': true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 14)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Literal {
                     value: Literal::StringLiteral(StringLiteral("id".to_string())),
@@ -710,7 +610,7 @@ fn test_object_literal_initializer_string_literal() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 12)).into()),
-            }],
+            })],
         }
     );
 }
@@ -718,11 +618,11 @@ fn test_object_literal_initializer_string_literal() {
 #[test]
 fn test_object_literal_initializer_numeric_literal() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ 0: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 11)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Literal {
                     value: Literal::NumericLiteral(NumericLiteral(0f64)),
@@ -736,7 +636,7 @@ fn test_object_literal_initializer_numeric_literal() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 9)).into()),
-            }],
+            })],
         }
     );
 }
@@ -744,11 +644,11 @@ fn test_object_literal_initializer_numeric_literal() {
 #[test]
 fn test_object_literal_initializer_computed() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(true, false),
         "{ [yield]: true }",
         Expression::ObjectExpression {
             loc: Some(((1, 0), (1, 17)).into()),
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 kind: PropertyKind::Init,
                 key: Expression::Yield {
                     argument: None,
@@ -762,7 +662,7 @@ fn test_object_literal_initializer_computed() {
                 shorthand: false,
                 computed: true,
                 loc: Some(((1, 2), (1, 15)).into()),
-            }],
+            })],
         }
     );
 }
@@ -770,10 +670,10 @@ fn test_object_literal_initializer_computed() {
 #[test]
 fn test_object_literal_method_definition() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 2), (1, 8)).into()),
@@ -790,7 +690,7 @@ fn test_object_literal_method_definition() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 15)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 17)).into()),
         }
     );
@@ -799,10 +699,10 @@ fn test_object_literal_method_definition() {
 #[test]
 fn test_object_literal_method_definition_generator() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ * method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 4), (1, 10)).into()),
@@ -819,7 +719,7 @@ fn test_object_literal_method_definition_generator() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 4), (1, 17)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 19)).into()),
         }
     );
@@ -828,10 +728,10 @@ fn test_object_literal_method_definition_generator() {
 #[test]
 fn test_object_literal_method_definition_async() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ async method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 8), (1, 14)).into()),
@@ -848,7 +748,7 @@ fn test_object_literal_method_definition_async() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 8), (1, 21)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 23)).into()),
         }
     );
@@ -857,10 +757,10 @@ fn test_object_literal_method_definition_async() {
 #[test]
 fn test_object_literal_method_definition_async_generator() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ async * method() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "method".to_string(),
                     loc: Some(((1, 10), (1, 16)).into()),
@@ -877,7 +777,7 @@ fn test_object_literal_method_definition_async_generator() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 10), (1, 23)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 25)).into()),
         }
     );
@@ -886,10 +786,10 @@ fn test_object_literal_method_definition_async_generator() {
 #[test]
 fn test_object_literal_method_definition_getter() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ get key() {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "key".to_string(),
                     loc: Some(((1, 6), (1, 9)).into()),
@@ -906,7 +806,7 @@ fn test_object_literal_method_definition_getter() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 16)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 18)).into()),
         }
     );
@@ -915,20 +815,20 @@ fn test_object_literal_method_definition_getter() {
 #[test]
 fn test_object_literal_method_definition_setter() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "{ set key(value) {  } }",
         Expression::ObjectExpression {
-            properties: vec![Property {
+            properties: vec![ObjectExpressionProperty::Property(Property {
                 key: Expression::Identifier {
                     name: "key".to_string(),
                     loc: Some(((1, 6), (1, 9)).into()),
                 },
                 value: Expression::FunctionExpression {
                     id: None,
-                    params: vec![Pattern::Identifier(Identifier(
-                        Some(((1, 10), (1, 15)).into()),
-                        "value".to_string(),
-                    ))],
+                    params: vec![Pattern::Identifier {
+                        name: "value".to_string(),
+                        loc: Some(((1, 10), (1, 15)).into()),
+                    }],
                     body: vec![],
                     async: false,
                     generator: false,
@@ -938,7 +838,7 @@ fn test_object_literal_method_definition_setter() {
                 shorthand: false,
                 computed: false,
                 loc: Some(((1, 2), (1, 21)).into()),
-            }],
+            })],
             loc: Some(((1, 0), (1, 23)).into()),
         }
     );
@@ -947,9 +847,9 @@ fn test_object_literal_method_definition_setter() {
 #[test]
 fn test_primary_expression_jsx_self_closing() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "<div/>",
-        Expression::JsxElementExpression {
+        Expression::JSXElement {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
@@ -961,14 +861,14 @@ fn test_primary_expression_jsx_self_closing() {
 #[test]
 fn test_primary_expression_jsx_opening_closing_match() {
     assert_parse_success!(
-        primary_expression,
+        primary_expression(false, false),
         "<div>\n\n</div>",
-        Expression::JsxElementExpression {
+        Expression::JSXElement {
             attributes: Vec::new(),
             children: Vec::new(),
             name: "div".to_string(),
             loc: Some(((1, 0), (3, 6)).into())
         }
     );
-    assert_parse_failure!(primary_expression, "<div>\n\n</v>");
+    assert_parse_failure!(primary_expression(false, false), "<div>\n\n</v>");
 }

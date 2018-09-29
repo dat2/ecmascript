@@ -103,7 +103,10 @@ macro_rules! build_ast {
         ExpressionListItem::Expression(build_ast!($($expression)+))
     };
     (...$($expression:tt)+) => {
-        ExpressionListItem::Spread(None, build_ast!($($expression)+))
+        ExpressionListItem::Spread(SpreadElement::SpreadElement {
+            argument: build_ast!($($expression)+),
+            loc: None,
+        })
     };
     (object [$($properties:tt),*]) => {
         Expression::ObjectExpression {

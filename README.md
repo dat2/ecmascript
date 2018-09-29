@@ -88,13 +88,6 @@ running once you have it installed!
 cargo clippy
 ```
 
-# TO DO
-
-* [ ] Parser Integration Testing
-  * eg. reading files, asserting that the parse is succesful
-* [ ] Re-write the grammar from the spec into a readable document
-* [ ] Build macros to help match AST / build AST trees
-
 # References
 
 * http://www.ecma-international.org/ecma-262/9.0/
