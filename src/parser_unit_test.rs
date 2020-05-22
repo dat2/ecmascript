@@ -340,11 +340,7 @@ fn test_template_element_template_character() {
     // escape sequence
     assert_parse_success!(template_character, "\\n", ('\n', "\\n".to_string()));
     assert_parse_success!(template_character, "\\x0A", ('\n', "\\x0A".to_string()));
-    assert_parse_success!(
-        template_character,
-        "\\u2764",
-        ('❤', "\\u2764".to_string())
-    );
+    assert_parse_success!(template_character, "\\u2764", ('❤', "\\u2764".to_string()));
     assert_parse_success!(
         template_character,
         "\\u{2764}",

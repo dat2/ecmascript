@@ -7,7 +7,7 @@ use ast::*;
 use combine::error::{ParseError, StreamError};
 use combine::parser::char::{char, crlf, digit, hex_digit, newline, spaces, string};
 use combine::parser::choice::{choice, optional};
-use combine::parser::combinator::{not_followed_by, try};
+use combine::parser::combinator::{attempt, not_followed_by};
 use combine::parser::error::unexpected;
 use combine::parser::item::{none_of, one_of, position, satisfy, token, value};
 use combine::parser::repeat::{count, count_min_max, many, many1, sep_by, sep_end_by, skip_until};
@@ -30,8 +30,8 @@ impl From<SourcePosition> for Position {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar
 
-/// This parser will consume all following whitespace tokens, including line terminators.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
+// This parser will consume all following whitespace tokens, including line terminators.
+// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
 parser! {
     fn ws[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -40,19 +40,19 @@ parser! {
     }
 }
 
-/// This parser will consume a single line terminator sequence token. This parser is only needed for the
-/// line_comment parser as it will consume up to a single line terminator token.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
+// This parser will consume a single line terminator sequence token. This parser is only needed for the
+// line_comment parser as it will consume up to a single line terminator token.
+// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
 parser! {
     fn line_terminator[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(newline()),
-            try(crlf()),
-            try(char('\r')),
-            try(char('\u{2028}')),
-            try(char('\u{2029}'))
+            attempt(newline()),
+            attempt(crlf()),
+            attempt(char('\r')),
+            attempt(char('\u{2028}')),
+            attempt(char('\u{2029}'))
         )).map(|_| ())
     }
 }
@@ -62,21 +62,21 @@ parser! {
     pub fn comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        try(block_comment()).or(line_comment())
+        attempt(block_comment()).or(line_comment())
     }
 }
 
-/// This parses a multiline comment, starting with /* and ending with */.
-/// It will consume the input and return ().
+// This parses a multiline comment, starting with /* and ending with */.
+// It will consume the input and return ().
 parser! {
     fn block_comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (string("/*"), skip_until(try(string("*/"))), string("*/")).map(|_| ())
+        (string("/*"), skip_until(attempt(string("*/"))), string("*/")).map(|_| ())
     }
 }
 
-/// This parses
+// This parses
 parser! {
     fn line_comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -94,7 +94,7 @@ parser! {
     fn skip_tokens[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (ws(), optional(try(comment())), ws()).map(|_| ())
+        (ws(), optional(attempt(comment())), ws()).map(|_| ())
     }
 }
 
@@ -115,7 +115,7 @@ parser! {
     fn unicode_id_start[I]()(I) -> char
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        try(unicode_escape_sequence().map(|x| x.0).then(|c| {
+        attempt(unicode_escape_sequence().map(|x| x.0).then(|c| {
             if satisfy_id_start(c) {
                 value(c).left()
             } else {
@@ -142,7 +142,7 @@ parser! {
     fn unicode_id_continue[I]()(I) -> char
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        try(unicode_escape_sequence().map(|x| x.0).then(|c| {
+        attempt(unicode_escape_sequence().map(|x| x.0).then(|c| {
             if satisfy_id_continue(c) {
                 value(c).left()
             } else {
@@ -217,12 +217,12 @@ lazy_static! {
             "with",
             "yield",
         ]
-            .iter()
-            .cloned()
-            .collect()
+        .iter()
+        .cloned()
+        .collect()
     };
     pub(crate) static ref FUTURE_RESERVED_WORDS: HashSet<&'static str> =
-        { ["enum"].iter().cloned().collect() };
+        ["enum"].iter().cloned().collect();
     pub(crate) static ref FUTURE_RESERVED_WORDS_STRICT: HashSet<&'static str> = {
         [
             "implements",
@@ -232,9 +232,9 @@ lazy_static! {
             "public",
             "private",
         ]
-            .iter()
-            .cloned()
-            .collect()
+        .iter()
+        .cloned()
+        .collect()
     };
 }
 
@@ -253,7 +253,7 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (choice((
-            try(string("true")).map(|_| true),
+            attempt(string("true")).map(|_| true),
             string("false").map(|_| false),
         ))).map(BooleanLiteral)
     }
@@ -265,9 +265,9 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (choice((
-            try(binary_integer_literal()),
-            try(octal_integer_literal()),
-            try(hex_integer_literal()),
+            attempt(binary_integer_literal()),
+            attempt(octal_integer_literal()),
+            attempt(hex_integer_literal()),
             decimal_literal(),
         ))).map(NumericLiteral)
     }
@@ -370,7 +370,7 @@ parser! {
     fn string_literal[I]()(I) -> StringLiteral
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        (try(double_quote_string()).or(single_quote_string())).map(StringLiteral)
+        (attempt(double_quote_string()).or(single_quote_string())).map(StringLiteral)
     }
 }
 
@@ -382,7 +382,7 @@ parser! {
             token('"'),
             token('"'),
             many(double_quote_string_character())
-        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flatten().collect())
     }
 }
 
@@ -392,8 +392,8 @@ parser! {
     {
         // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
         choice((
-            try(line_continuation()).map(|_| None),
-            try(escape_sequence()).map(|x| x.0).map(Some),
+            attempt(line_continuation()).map(|_| None),
+            attempt(escape_sequence()).map(|x| x.0).map(Some),
             none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}\"".chars()).map(Some)
         ))
     }
@@ -407,7 +407,7 @@ parser! {
             token('\''),
             token('\''),
             many(single_quote_string_character())
-        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flatten().collect())
     }
 }
 
@@ -417,8 +417,8 @@ parser! {
     {
         // U+005C (REVERSE SOLIDUS), U+000D (CARRIAGE RETURN), U+2028 (LINE SEPARATOR), U+2029 (PARAGRAPH SEPARATOR), and U+000A (LINE FEED)
         choice((
-            try(line_continuation()).map(|_| None),
-            try(escape_sequence()).map(|x| x.0).map(Some),
+            attempt(line_continuation()).map(|_| None),
+            attempt(escape_sequence()).map(|x| x.0).map(Some),
             none_of("\u{005c}\u{000D}\u{2028}\u{2029}\u{000A}'".chars()).map(Some)
         ))
     }
@@ -432,11 +432,11 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(single_escape_character()),
-            try(non_escape_character()),
-            try(legacy_octal_escape_sequence()),
-            try(hex_escape_sequence()),
-            try(unicode_escape_sequence()),
+            attempt(single_escape_character()),
+            attempt(non_escape_character()),
+            attempt(legacy_octal_escape_sequence()),
+            attempt(hex_escape_sequence()),
+            attempt(unicode_escape_sequence()),
         ))
     }
 }
@@ -470,10 +470,10 @@ parser! {
         token('\\')
             .and(
                 choice((
-                    try(legacy_octal_escape_sequence_single_digit()),
-                    try(legacy_octal_escape_sequence_two_digits_zero_to_three()),
-                    try(legacy_octal_escape_sequence_two_digits_four_to_seven()),
-                    try(legacy_octal_escape_sequence_three_digits()),
+                    attempt(legacy_octal_escape_sequence_single_digit()),
+                    attempt(legacy_octal_escape_sequence_two_digits_zero_to_three()),
+                    attempt(legacy_octal_escape_sequence_two_digits_four_to_seven()),
+                    attempt(legacy_octal_escape_sequence_three_digits()),
                 ))
             )
             .map(|(escape, (cooked, raw)): (char, (char, String))| (cooked, escape.to_string() + &raw))
@@ -505,7 +505,7 @@ parser! {
 }
 
 fn octal_digit_to_u8(digit: char) -> u8 {
-    digit as u8 - '0' as u8
+    digit as u8 - b'0'
 }
 
 parser! {
@@ -668,8 +668,8 @@ parser! {
     fn regex_first_char [I]()(I) -> String
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        try(regex_backslash_sequence())
-            .or(try(regex_class()))
+        attempt(regex_backslash_sequence())
+            .or(attempt(regex_class()))
             .or(none_of("*/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
     }
 }
@@ -678,8 +678,8 @@ parser! {
     fn regex_char [I]()(I) -> String
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        try(regex_backslash_sequence())
-            .or(try(regex_class()))
+        attempt(regex_backslash_sequence())
+            .or(attempt(regex_class()))
             .or(none_of("/\\[\n\r\u{2028}\u{2029}".chars()).map(|c: char| c.to_string()))
     }
 }
@@ -707,7 +707,7 @@ parser! {
         (
             token('['),
             many::<String, _>(
-                try(regex_backslash_sequence()).or(none_of("]\\".chars()).map(|c: char| c.to_string())),
+                attempt(regex_backslash_sequence()).or(none_of("]\\".chars()).map(|c: char| c.to_string())),
                 ),
                 token(']'),
                 )
@@ -728,8 +728,8 @@ parser! {
         (
             position(),
             choice((
-                try(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
-                try(substitution_template(*_yield, *_await)),
+                attempt(no_substition_template()).map(|quasi| (vec![quasi], Vec::new())),
+                attempt(substitution_template(*_yield, *_await)),
             )),
             position(),
         )
@@ -820,7 +820,7 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         (
-            many::<Vec<_>, _>(try((template_middle(), assignment_expression(*_yield, *_await)))),
+            many::<Vec<_>, _>(attempt((template_middle(), assignment_expression(*_yield, *_await)))),
             template_tail(),
         )
             .map(|(quasis_expressions, tail)| {
@@ -841,9 +841,9 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(token('$').skip(not_followed_by(token('{')))).map(|x: char| (x, x.to_string())),
-            try(escape_sequence()),
-            try(one_of("\r\n\u{2028}\u{2029}".chars())).map(|x: char| (x, x.to_string())),
+            attempt(token('$').skip(not_followed_by(token('{')))).map(|x: char| (x, x.to_string())),
+            attempt(escape_sequence()),
+            attempt(one_of("\r\n\u{2028}\u{2029}".chars())).map(|x: char| (x, x.to_string())),
             none_of("`\\$".chars()).map(|x: char| (x, x.to_string())),
         ))
     }
@@ -908,14 +908,14 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(this()),
-            try(identifier_expression()),
-            try(literal()),
-            try(array_literal(*_yield, *_await)),
-            try(object_literal(*_yield, *_await)),
-            try(regex_literal_expression()),
-            try(template_literal(*_yield, *_await)),
-            try(jsx_element(*_yield, *_await)),
+            attempt(this()),
+            attempt(identifier_expression()),
+            attempt(literal()),
+            attempt(array_literal(*_yield, *_await)),
+            attempt(object_literal(*_yield, *_await)),
+            attempt(regex_literal_expression()),
+            attempt(template_literal(*_yield, *_await)),
+            attempt(jsx_element(*_yield, *_await)),
         ))
     }
 }
@@ -948,10 +948,10 @@ parser! {
         (
             position(),
             choice((
-                    try(null_literal()).map(Literal::NullLiteral),
-                    try(boolean_literal()).map(Literal::BooleanLiteral),
-                    try(numeric_literal()).map(Literal::NumericLiteral),
-                    try(string_literal()).map(Literal::StringLiteral),
+                    attempt(null_literal()).map(Literal::NullLiteral),
+                    attempt(boolean_literal()).map(Literal::BooleanLiteral),
+                    attempt(numeric_literal()).map(Literal::NumericLiteral),
+                    attempt(string_literal()).map(Literal::StringLiteral),
                     )),
                     position(),
                     )
@@ -972,9 +972,9 @@ parser! {
         (
             position(),
             token('[').skip(skip_tokens()),
-            optional(try(elision())),
+            optional(attempt(elision())),
             element_list(*_yield, *_await),
-            optional(try(elision())),
+            optional(attempt(elision())),
             token(']').skip(skip_tokens()),
             position(),
         )
@@ -1011,11 +1011,11 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         sep_end_by::<Vec<_>, _, _>(
-            optional(try(elision()))
+            optional(attempt(elision()))
                 .and(choice((
-                    try(assignment_expression(*_yield, *_await))
+                    attempt(assignment_expression(*_yield, *_await))
                         .map(ExpressionListItem::Expression),
-                    try(spread_element(*_yield, *_await)),
+                    attempt(spread_element(*_yield, *_await)),
                 )))
                 .skip(skip_tokens()),
             token(',').skip(skip_tokens()),
@@ -1064,9 +1064,9 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(property_initializer(*_yield, *_await)).map(ObjectExpressionProperty::Property),
-            try(method_definition(*_yield, *_await)).map(ObjectExpressionProperty::Property),
-            try(shorthand_property()).map(ObjectExpressionProperty::Property),
+            attempt(property_initializer(*_yield, *_await)).map(ObjectExpressionProperty::Property),
+            attempt(method_definition(*_yield, *_await)).map(ObjectExpressionProperty::Property),
+            attempt(shorthand_property()).map(ObjectExpressionProperty::Property),
         ))
     }
 }
@@ -1123,8 +1123,8 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(literal_property_name()).map(|e| (e, false)),
-            try(computed_property_name(*_yield, *_await)).map(|e| (e, true)),
+            attempt(literal_property_name()).map(|e| (e, false)),
+            attempt(computed_property_name(*_yield, *_await)).map(|e| (e, true)),
         ))
     }
 }
@@ -1193,10 +1193,10 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(assignment_expression_inner_equal(*_yield, *_await)),
-            try(assignment_expression_inner_operators(*_yield, *_await)),
-            try(conditional_expression(*_yield, *_await)),
-            try(
+            attempt(assignment_expression_inner_equal(*_yield, *_await)),
+            attempt(assignment_expression_inner_operators(*_yield, *_await)),
+            attempt(conditional_expression(*_yield, *_await)),
+            attempt(
                 if *_yield {
                     yield_expression(*_await).left()
                 } else {
@@ -1217,8 +1217,8 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(primary_expression(*_yield, *_await)),
-            try(conditional_expression_inner(*_yield, *_await)),
+            attempt(primary_expression(*_yield, *_await)),
+            attempt(conditional_expression_inner(*_yield, *_await)),
         ))
     }
 }
@@ -1259,7 +1259,7 @@ parser! {
         (
             string("yield").skip(skip_tokens()),
             optional(token('*').skip(skip_tokens())),
-            optional(try(assignment_expression(true, *_await).skip(skip_tokens()))),
+            optional(attempt(assignment_expression(true, *_await).skip(skip_tokens()))),
         )
         .map(|(_, delegate_token, argument)| Expression::Yield {
             argument: argument.map(Box::new),
@@ -1346,7 +1346,7 @@ parser! {
     )(I) -> Expression
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        choice((try(jsx_self_closing_element(*_yield, *_await)), jsx_matched_element(*_yield, *_await)))
+        choice((attempt(jsx_self_closing_element(*_yield, *_await)), jsx_matched_element(*_yield, *_await)))
     }
 }
 
@@ -1355,7 +1355,7 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(jsx_namespaced_name()),
+            attempt(jsx_namespaced_name()),
             identifier()
         ))
     }
@@ -1369,7 +1369,7 @@ parser! {
             identifier(),
             string(":"),
             identifier()
-        ).map(|(namespace, token, id)| namespace + &token+ &id)
+        ).map(|(namespace, token, id)| namespace + token + &id)
     }
 }
 
@@ -1424,7 +1424,7 @@ parser! {
     )(I) -> JsxAttribute
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        choice((try(jsx_spread_attribute(*_yield, *_await)), try(jsx_attribute_key_value(*_yield, *_await))))
+        choice((attempt(jsx_spread_attribute(*_yield, *_await)), attempt(jsx_attribute_key_value(*_yield, *_await))))
     }
 }
 
@@ -1452,7 +1452,7 @@ parser! {
     {
         (
             jsx_attribute_name().skip(skip_tokens()),
-            optional(try(jsx_attribute_initializer(*_yield, *_await))),
+            optional(attempt(jsx_attribute_initializer(*_yield, *_await))),
         )
         .map(|(name, value)| JsxAttribute::JsxAttribute { name, value })
     }
@@ -1485,9 +1485,9 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(jsx_attribute_value_string()),
-            try(jsx_attribute_value_expression(*_yield, *_await)),
-            try(jsx_element(*_yield, *_await)),
+            attempt(jsx_attribute_value_string()),
+            attempt(jsx_attribute_value_expression(*_yield, *_await)),
+            attempt(jsx_element(*_yield, *_await)),
         )).skip(skip_tokens())
     }
 }
@@ -1603,7 +1603,7 @@ parser! {
     )(I) -> Option<Expression>
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
-        optional(try((
+        optional(attempt((
             token(',').skip(skip_tokens()),
             assignment_expression(*_yield, *_await),
             expression_inner(*_yield, *_await)
@@ -1652,7 +1652,7 @@ parser! {
             position(),
             string("var").skip(skip_tokens()),
             variable_declaration_list(*_yield, *_await),
-            optional(try(token(';').skip(skip_tokens()))),
+            optional(attempt(token(';').skip(skip_tokens()))),
             position(),
         ).map(|(start, _, declarations, _, end)| Statement::VariableDeclaration {
             kind: VariableDeclarationKind::Var,
@@ -1696,7 +1696,7 @@ parser! {
     {
         (
             binding_identifier().skip(skip_tokens()),
-            optional(try(
+            optional(attempt(
                 token('=')
                     .skip(skip_tokens())
                     .with(assignment_expression(*_yield, *_await)
@@ -1796,11 +1796,11 @@ parser! {
     where [I: Stream<Item=char, Position=SourcePosition>]
     {
         choice((
-            try(getter_method_definition(*_yield, *_await)),
-            try(setter_method_definition(*_yield, *_await)),
-            try(generator_method_definition()),
-            try(async_generator_method_definition()),
-            try(async_method_definition()),
+            attempt(getter_method_definition(*_yield, *_await)),
+            attempt(setter_method_definition(*_yield, *_await)),
+            attempt(generator_method_definition()),
+            attempt(async_generator_method_definition()),
+            attempt(async_method_definition()),
             basic_method_definition(false, false),
         ))
     }
