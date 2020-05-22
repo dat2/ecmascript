@@ -382,7 +382,7 @@ parser! {
             token('"'),
             token('"'),
             many(double_quote_string_character())
-        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flatten().collect())
     }
 }
 
@@ -407,7 +407,7 @@ parser! {
             token('\''),
             token('\''),
             many(single_quote_string_character())
-        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flat_map(|c| c).collect())
+        ).map(|chars_optional: Vec<Option<char>>| chars_optional.iter().flatten().collect())
     }
 }
 
