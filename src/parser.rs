@@ -222,7 +222,7 @@ lazy_static! {
         .collect()
     };
     pub(crate) static ref FUTURE_RESERVED_WORDS: HashSet<&'static str> =
-        { ["enum"].iter().cloned().collect() };
+        ["enum"].iter().cloned().collect();
     pub(crate) static ref FUTURE_RESERVED_WORDS_STRICT: HashSet<&'static str> = {
         [
             "implements",
