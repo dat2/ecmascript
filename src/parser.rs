@@ -30,8 +30,8 @@ impl From<SourcePosition> for Position {
 
 // https://www.ecma-international.org/ecma-262/9.0/index.html#sec-ecmascript-language-lexical-grammar
 
-/// This parser will consume all following whitespace tokens, including line terminators.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
+// This parser will consume all following whitespace tokens, including line terminators.
+// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-white-space)
 parser! {
     fn ws[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -40,9 +40,9 @@ parser! {
     }
 }
 
-/// This parser will consume a single line terminator sequence token. This parser is only needed for the
-/// line_comment parser as it will consume up to a single line terminator token.
-/// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
+// This parser will consume a single line terminator sequence token. This parser is only needed for the
+// line_comment parser as it will consume up to a single line terminator token.
+// [Reference](https://www.ecma-international.org/ecma-262/9.0/index.html#sec-line-terminators)
 parser! {
     fn line_terminator[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -66,8 +66,8 @@ parser! {
     }
 }
 
-/// This parses a multiline comment, starting with /* and ending with */.
-/// It will consume the input and return ().
+// This parses a multiline comment, starting with /* and ending with */.
+// It will consume the input and return ().
 parser! {
     fn block_comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
@@ -76,7 +76,7 @@ parser! {
     }
 }
 
-/// This parses
+// This parses
 parser! {
     fn line_comment[I]()(I) -> ()
     where [I: Stream<Item=char, Position=SourcePosition>]
