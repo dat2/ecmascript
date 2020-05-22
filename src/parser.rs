@@ -1369,7 +1369,7 @@ parser! {
             identifier(),
             string(":"),
             identifier()
-        ).map(|(namespace, token, id)| namespace + &token+ &id)
+        ).map(|(namespace, token, id)| namespace + token + &id)
     }
 }
 
