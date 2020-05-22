@@ -217,9 +217,9 @@ lazy_static! {
             "with",
             "yield",
         ]
-            .iter()
-            .cloned()
-            .collect()
+        .iter()
+        .cloned()
+        .collect()
     };
     pub(crate) static ref FUTURE_RESERVED_WORDS: HashSet<&'static str> =
         { ["enum"].iter().cloned().collect() };
@@ -232,9 +232,9 @@ lazy_static! {
             "public",
             "private",
         ]
-            .iter()
-            .cloned()
-            .collect()
+        .iter()
+        .cloned()
+        .collect()
     };
 }
 
