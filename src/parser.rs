@@ -505,7 +505,7 @@ parser! {
 }
 
 fn octal_digit_to_u8(digit: char) -> u8 {
-    digit as u8 - '0' as u8
+    digit as u8 - b'0'
 }
 
 parser! {
